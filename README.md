@@ -1244,6 +1244,25 @@ sudo modprobe x120x
 To load automatically at boot without the overlay, add `x120x` to
 `/etc/modules`.
 
+### Testing
+
+The installer and uninstaller logic is covered by a small shell test
+suite under `tests/`.  The tests sed-extract the individual functions,
+mock the external commands (`rpi-eeprom-config`, the device-tree model,
+sysfs paths), and assert on the resulting files and logs — nothing
+touches the real system, so they run unprivileged:
+
+```bash
+bash tests/test-install.sh      # bootloader EEPROM staging
+bash tests/test-ini-blocks.sh   # logind/UPower block round-trip, config.txt
+bash tests/test-args.sh         # argument parsing
+bash tests/test-persist.sh      # charge-mode persistence script
+```
+
+CI runs all of them, plus `bash -n` and `shellcheck -S warning` on
+`install.sh`, `uninstall.sh`, and the tests, on every push and pull
+request.
+
 ## Verifying operation
 
 (These are the same checks as Step 10 of the manual installation,
