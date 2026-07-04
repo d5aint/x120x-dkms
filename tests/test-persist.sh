@@ -13,6 +13,12 @@
 
 set -uo pipefail
 
+# Tests never need root; refuse it so a stray sudo can't touch the system.
+if [ "$(id -u)" -eq 0 ]; then
+    echo "Refusing to run as root — these tests never need it." >&2
+    exit 2
+fi
+
 HERE=$(cd "$(dirname "$0")" && pwd)
 INSTALL_SH="${HERE}/../install.sh"
 

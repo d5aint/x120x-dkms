@@ -13,6 +13,13 @@
 
 set -uo pipefail
 
+if [ "$(id -u)" -eq 0 ]; then
+    echo "Refusing to run as root: expect_accept invokes" >&2
+    echo "install.sh with valid arguments, which as root on a" >&2
+    echo "real Pi would execute the full installer repeatedly." >&2
+    exit 2
+fi
+
 HERE=$(cd "$(dirname "$0")" && pwd)
 INSTALL_SH="${HERE}/../install.sh"
 

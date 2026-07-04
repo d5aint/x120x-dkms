@@ -16,6 +16,12 @@
 # shellcheck disable=SC2034
 set -uo pipefail   # deliberately not -e: we want every case to run
 
+# Tests never need root; refuse it so a stray sudo can't touch the system.
+if [ "$(id -u)" -eq 0 ]; then
+    echo "Refusing to run as root — these tests never need it." >&2
+    exit 2
+fi
+
 HERE=$(cd "$(dirname "$0")" && pwd)
 INSTALL_SH="${HERE}/../install.sh"
 
