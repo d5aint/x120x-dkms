@@ -4,8 +4,11 @@ A DKMS kernel driver for SupTronics UPS HAT boards on Raspberry Pi,
 distributed by Geekworm.  Covers the X120x series and experimentally
 the X728, X729, and X708.
 
-This driver is referenced on Geekworm's official wiki — see the
-[X1206 wiki page](https://wiki.geekworm.com/X1206).
+This driver is an independent community project — developed on my own
+time and hardware, not affiliated with or endorsed by SupTronics or
+Geekworm — though Geekworm links to it from their official wiki pages
+for these boards (e.g. the
+[X1206 page](https://wiki.geekworm.com/X1206)).
 
 Provides native Linux power supply integration equivalent to a laptop
 battery — battery icon in the taskbar, accurate state of charge,
