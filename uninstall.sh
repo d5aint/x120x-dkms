@@ -79,11 +79,12 @@ remove_ini_block() {
     esc_end=$(printf '%s\n' "${marker_end}"   | sed 's/[][\/.^$*]/\\&/g')
     sed -i "/^${esc_begin}$/,/^${esc_end}$/d" "${file}"
 
-    # The installer prepends a blank line before each block.  If the
-    # block was at end-of-file, removing it leaves a trailing blank line;
-    # trim trailing blank lines for cleanliness.  Internal blank lines
-    # are preserved.
-    sed -i -e ':a;/^$/{$d;N;ba}' "${file}" 2>/dev/null || true
+    # The installer prepends exactly one blank line before each block,
+    # and always appends the block at end-of-file, so after deleting the
+    # block that one blank line is the final line.  Remove exactly that
+    # one trailing blank — not every trailing blank, which would eat a
+    # user's own trailing blank line.
+    sed -i -e '${/^$/d}' "${file}" 2>/dev/null || true
 }
 
 # -------------------------------------------------------------------------
