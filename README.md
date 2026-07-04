@@ -187,13 +187,13 @@ from `armhf` users are welcome.
 ### Not supported by this driver
 
 - **X703** — ultra-thin single-cell UPS for Pi 4 only.  Connects via
-  test pins rather than the 40-pin header.  No I2C fuel gauge or GPIO
+  test pins rather than the 40-pin header.  No I²C fuel gauge or GPIO
   interface accessible from the Pi.  Software shutdown not supported.
 - **X735** — power management and PWM fan controller, not a UPS.  Has
-  no battery fuel gauge and no I2C interface.  Nothing for this driver
+  no battery fuel gauge and no I²C interface.  Nothing for this driver
   to interface with.
 - **X-UPS1** — a universal stackable UPS with 12V/5V dual output and
-  no Raspberry Pi GPIO integration.  No I2C fuel gauge interface.
+  no Raspberry Pi GPIO integration.  No I²C fuel gauge interface.
 
 ## What it provides
 
@@ -230,8 +230,8 @@ After loading, three devices appear under `/sys/class/power_supply/`:
     online                          1 = mains present
     status                          Charging | Not charging | Discharging
     charge_type                     Fast | Long Life  (writeable)
-    charge_control_start_threshold  SoC % to resume charging in Long life mode (writeable, default 75)
-    charge_control_end_threshold    SoC % to stop charging in Long life mode (writeable, default 80)
+    charge_control_start_threshold  SoC % to resume charging in Long Life mode (writeable, default 75)
+    charge_control_end_threshold    SoC % to stop charging in Long Life mode (writeable, default 80)
 ```
 
 A hwmon device is also registered under `/sys/class/hwmon/`:
@@ -788,7 +788,7 @@ bootloader EEPROM instead.
 
 The X120x boards drive GPIO6 high when mains power is present and
 actively pull it low on power loss.  Without a software pull-up, GPIO6
-can float low at boot before the X1206 hardware has finished
+can float low at boot before the UPS hardware has finished
 initialising — causing the driver to falsely report `ac_online=0` even
 when the charger is connected.  This is particularly likely when the
 PSU is overloaded at boot (e.g. simultaneously charging the UPS battery
@@ -814,8 +814,9 @@ After a genuine deep discharge event the MAX17043 fuel gauge may report
 - 0% SoC is treated as a valid reading, not implausible — a quick-start
   command (which resets the fuel gauge's SoC estimation) is not issued,
   avoiding a reset at the worst possible moment.
-- The charger (GPIO16) is forced low at probe and defaults to enabled
-  whenever SoC is below the stop threshold — the battery starts charging
+- The charger (GPIO16) is forced on at probe and whenever SoC is at or
+  below the resume threshold; between the resume and stop thresholds it
+  holds its previous state.  The battery therefore starts charging
   immediately on every boot regardless of saved state.
 - `capacity_level=Critical` is never reported when mains power is
   present, preventing UPower from triggering a shutdown loop while the
@@ -1299,8 +1300,9 @@ production use.
 ## Real-world incidents that shaped this driver
 
 This driver was developed on hardware running unattended, always-on.
-Two real power incidents exposed failure modes that no lab test would
-have found — and drove significant hardening of the driver.
+Two real power incidents — plus one field-discovered driver bug —
+exposed failure modes that no lab test would have found, and drove
+significant hardening of the driver.
 
 A companion daemon running on the same system reads the driver's sysfs
 nodes continuously, logs every reading to a SQLite database, and
@@ -1401,9 +1403,9 @@ at the expected rate.
 Grid was restored approximately 1 hour after the outage began
 (confirmed by the uptime of a desktop machine on the same circuit), but
 the X1206 never detected the return — `ac_online` remained `0` for the
-remainder of the discharge.  Because `powerd.py` saw no grid, charging
-never resumed.  The system continued draining as if the outage was
-still in progress.
+remainder of the discharge.  Because the companion daemon saw no grid,
+charging never resumed.  The system continued draining as if the outage
+was still in progress.
 
 The companion daemon's shutdown mechanism worked correctly:
 `shutdown_armed` fired at **14:29:28 UTC** at 10.0% SoC / 3.59 V, and
@@ -1481,7 +1483,10 @@ starts charging immediately on every boot.
 previously only re-enabled the charger when SoC dropped below the
 resume threshold.  The start threshold has been removed: the charger is
 now enabled whenever SoC is below the stop threshold, defaulting to on
-in all uncertain or low-SoC states.
+in all uncertain or low-SoC states.  (v0.4.4 later restored the
+hysteresis band — the charger is still forced on at probe and at or
+below the resume threshold, but in-band readings now hold state; see
+the changelog.)
 
 **0% SoC no longer treated as implausible** — the driver previously
 issued a MAX17043 quick-start command when the initial SoC reading was
@@ -1671,7 +1676,7 @@ tens, sustained, is a misbehaving driver.
 A second user ([issue #2](https://github.com/mor-lock/x120x-dkms/issues/2))
 hit the same bug independently on a **Geekworm X1209 + X1002 NVMe**
 expansion board running v0.4.2, on the same day the author diagnosed
-it on a X1206.  Their symptom was different — no audible fan, but the
+it on an X1206.  Their symptom was different — no audible fan, but the
 attached Samsung 970 Evo NVMe was heatsoaking to **70–75 °C** at idle
 versus a normal **~51 °C** on v0.4.1.  The mechanism is the same: the
 udev rule `90-x120x-persist.rules` runs
