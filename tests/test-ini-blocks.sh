@@ -97,6 +97,14 @@ assert "idempotent: exactly one begin marker" '[ "$(grep -c ">>> x120x-dkms: ${T
 assert "idempotent: exactly one end marker"   '[ "$(grep -c "<<< x120x-dkms: ${TAG}" "${WORK}/f")" -eq 1 ]'
 assert "idempotent: one HandleLowBattery line" '[ "$(grep -c "^HandleLowBattery=poweroff$" "${WORK}/f")" -eq 1 ]'
 
+# Reinstall is byte-identical: install once, snapshot, install again and
+# compare — guards against a blank line accumulating before the block.
+printf '[Login]\nUserKey=1\n' > "${WORK}/f"
+install_ini_block "${WORK}/f" "Login" "${TAG}" "HandleLowBattery=poweroff" >/dev/null 2>&1
+cp "${WORK}/f" "${WORK}/f.once"
+install_ini_block "${WORK}/f" "Login" "${TAG}" "HandleLowBattery=poweroff" >/dev/null 2>&1
+assert "reinstall: byte-identical (no blank accumulation)" 'cmp -s "${WORK}/f.once" "${WORK}/f"'
+
 # User lines outside the markers are never modified.
 printf '[Login]\nUserKey=keep-me\n' > "${WORK}/f"
 install_ini_block "${WORK}/f" "Login" "${TAG}" "HandleLowBattery=poweroff" >/dev/null 2>&1

@@ -451,6 +451,14 @@ echo 70 | sudo tee /sys/class/power_supply/x120x-charger/charge_control_start_th
 echo 85 | sudo tee /sys/class/power_supply/x120x-charger/charge_control_end_threshold
 ```
 
+> **Note:** `charge_control_start_threshold` and
+> `charge_control_end_threshold` always report the **Long Life** band
+> (default 75 / 80), regardless of the active mode — the standard sysfs
+> interface has no way to express the Fast band.  In `Fast` mode those
+> two values are inert: charging follows the fixed 100% / 95% band
+> described above.  So seeing `75` / `80` there while in `Fast` is
+> expected, not a misconfiguration.
+
 The default thresholds (75% / 80%) match the recommendation of TLP, the
 widely-used Linux power management tool, and are a commonly accepted
 balance between battery longevity and available backup capacity.
@@ -1100,15 +1108,15 @@ to compile the module.
 DKMS expects the source under `/usr/src/<name>-<version>/`:
 
 ```bash
-sudo cp -r . /usr/src/x120x-0.4.6
+sudo cp -r . /usr/src/x120x-0.4.7
 ```
 
 #### Step 3 — Build and install the kernel module
 
 ```bash
-sudo dkms add x120x/0.4.6
-sudo dkms build x120x/0.4.6
-sudo dkms install x120x/0.4.6
+sudo dkms add x120x/0.4.7
+sudo dkms build x120x/0.4.7
+sudo dkms install x120x/0.4.7
 ```
 
 You will see compiler output scroll past — this is normal.  The build
@@ -1121,7 +1129,7 @@ Verify the module is installed:
 dkms status
 ```
 
-You should see `x120x/0.4.6, <kernel-version>, aarch64: installed`.
+You should see `x120x/0.4.7, <kernel-version>, aarch64: installed`.
 
 #### Step 4 — Compile the device tree overlay
 
@@ -1861,6 +1869,23 @@ should still trigger the same diagnostic (`uevent_seqnum` delta) as
 the first step.
 
 ## Changelog
+
+### v0.4.7 — CI build checks, issue templates, debug tooling, follow-up fixes
+
+**Driver**
+- `set_property` emits a synchronous `power_supply_changed()` on the
+  charger after a `charge_type` write (outside `chip->lock`), so the udev
+  charge-mode persistence runs on the write itself rather than waiting
+  for the next poll/heartbeat cycle to emit the charger uevent.
+
+**Installer**
+- `install_ini_block` no longer accumulates a leading blank line before
+  its marker block on reinstall — a repeat install is now byte-identical.
+
+**Documentation**
+- Note that `charge_control_*_threshold` reports the Long Life band even
+  in `Fast` mode (Fast uses a fixed 100% / 95% band the standard sysfs
+  interface cannot express), so `75` / `80` there in Fast is expected.
 
 ### v0.4.6 — Automatic Pi 5 bootloader configuration, troubleshooting guide
 

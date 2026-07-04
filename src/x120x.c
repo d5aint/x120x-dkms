@@ -1242,6 +1242,14 @@ static int x120x_charger_set_property(struct power_supply *psy,
 	dev_dbg(&chip->client->dev, "charge_type set to %s\n",
 		disable ? "Long life (conservation mode)" : "Fast");
 
+	/*
+	 * Notify the charger supply synchronously (outside chip->lock —
+	 * power_supply_changed() must not be called under it).  This fires
+	 * the charger uevent on the write itself, so the udev charge-mode
+	 * persistence runs immediately instead of waiting for the next
+	 * poll/heartbeat cycle to emit it.
+	 */
+	power_supply_changed(chip->charger);
 	power_supply_changed(chip->battery);
 	return 0;
 }
@@ -1946,7 +1954,7 @@ module_exit(x120x_exit);
 
 MODULE_AUTHOR("Edvard Fielding <mor-lock@users.noreply.github.com>");
 MODULE_DESCRIPTION("SupTronics UPS HAT power supply driver (X120x, X728, X708, X729)");
-MODULE_VERSION("0.4.6");
+MODULE_VERSION("0.4.7");
 MODULE_LICENSE("GPL v2");
 
 /*

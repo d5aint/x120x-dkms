@@ -103,6 +103,11 @@ install_ini_block() {
         esc_begin=$(printf '%s\n' "${marker_begin}" | sed 's/[][\/.^$*]/\\&/g')
         esc_end=$(printf '%s\n' "${marker_end}"   | sed 's/[][\/.^$*]/\\&/g')
         sed -i "/^${esc_begin}$/,/^${esc_end}$/d" "${file}"
+        # The block always sat at EOF preceded by the one blank line we
+        # prepend below.  Deleting the block leaves that blank as the
+        # final line; drop exactly it so a reinstall stays byte-identical
+        # instead of accumulating a blank line on every run.
+        sed -i -e '${/^$/d}' "${file}"
     fi
 
     # Ensure the section header exists.  If not, append a blank line and
@@ -322,7 +327,7 @@ done
 # -------------------------------------------------------------------------
 
 PKG_NAME="x120x"
-PKG_VERSION="0.4.6"
+PKG_VERSION="0.4.7"
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # External command and device-tree model path — overridable for testing.
