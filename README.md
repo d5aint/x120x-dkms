@@ -51,12 +51,24 @@ that matches:
 |---|---|---|
 | X1200, X1201 | 2× 18650 | `sudo bash install.sh --battery-mah 6000` |
 | X1202 | 4× 18650 | `sudo bash install.sh --battery-mah 12000` |
+| X1203 | External Li-ion | `sudo bash install.sh --battery-mah <your_capacity>` |
 | X1205 | 2× 21700 | `sudo bash install.sh --battery-mah 10000` |
 | X1206 | 4× 21700 | `sudo bash install.sh --battery-mah 20000` |
+| X1207 | 1× 21700 (PoE) | `sudo bash install.sh --battery-mah 5000` |
+| X1208 | 1× 21700 + NVMe | `sudo bash install.sh --battery-mah 5000` |
+| X1209 | External Li-ion | `sudo bash install.sh --battery-mah <your_capacity>` |
+| X728 V2.x *(experimental)* | your pack | `sudo bash install.sh --board x728v2 --battery-mah <your_capacity>` |
+| X728 V1.x *(experimental)* | your pack | `sudo bash install.sh --board x728v1 --battery-mah <your_capacity>` |
+| X708 *(experimental)* | your pack | `sudo bash install.sh --board x708 --battery-mah <your_capacity>` |
+| X729 *(experimental)* | your pack | `sudo bash install.sh --board x729 --battery-mah <your_capacity>` |
 
 The table assumes 3000 mAh 18650 cells and 5000 mAh 21700 cells — check
 the mAh printed on your actual cells and multiply by the cell count if
-yours differ.  `Fast` is the default charge mode, so it is omitted
+yours differ.  For boards with an external or unspecified pack (X1203,
+X1209, and the experimental boards) replace `<your_capacity>` with your
+pack's total capacity in mAh.  The X728/X708/X729 rows are
+**experimental and untested** — see *Experimental board support* before
+relying on them.  `Fast` is the default charge mode, so it is omitted
 above; for a frequently cycled or portable build add `--charge-mode
 longlife` (see *Choosing a profile: runtime vs. longevity*).
 
