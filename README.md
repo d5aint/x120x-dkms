@@ -1887,6 +1887,11 @@ the first step.
   in `Fast` mode (Fast uses a fixed 100% / 95% band the standard sysfs
   interface cannot express), so `75` / `80` there in Fast is expected.
 
+**CI**
+- New `build` job compile-checks the module against generic kernel
+  headers with `KCFLAGS=-Werror` (never loaded); new `overlay` job
+  compiles `x120x-overlay.dts` with `dtc` (errors fail, warnings allowed).
+
 ### v0.4.6 — Automatic Pi 5 bootloader configuration, troubleshooting guide
 
 **Installer**

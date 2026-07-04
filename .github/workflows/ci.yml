@@ -48,3 +48,32 @@ jobs:
             fi
           done
           [ "$fail" -eq 0 ] || { echo "Update the tree in README.md."; exit 1; }
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y build-essential linux-headers-generic
+
+      # Compile-check only — the module is never loaded here.
+      # KCFLAGS=-Werror turns any compiler warning into a failure.
+      - name: Compile-check the module (-Werror)
+        run: |
+          KDIR=/lib/modules/$(ls /lib/modules | head -1)/build
+          [ -d "$KDIR" ] || KDIR=$(ls -d /lib/modules/*/build | head -1)
+          echo "Building against $KDIR"
+          make KDIR="$KDIR" KCFLAGS=-Werror
+
+  overlay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install device-tree-compiler
+        run: sudo apt-get update && sudo apt-get install -y device-tree-compiler
+
+      # Errors fail the job; dtc warnings are allowed (dtc exits 0 on them).
+      - name: Compile the device tree overlay
+        run: dtc -@ -I dts -O dtb -o /tmp/x120x.dtbo x120x-overlay.dts
