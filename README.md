@@ -1848,10 +1848,23 @@ the first step.
 - `## Required bootloader settings (Raspberry Pi 5)` is now the single
   canonical reference for the settings, what they do, their caveats, and
   the manual one-liner.
+- Intro reframed as an independent community project — not affiliated
+  with or endorsed by SupTronics/Geekworm, though linked from Geekworm's
+  wiki pages.
+- New Testing section documenting how to run the suite locally.
 
 **Tests**
-- New `tests/test-install.sh` harness covering `configure_bootloader()`
-  against a mocked `rpi-eeprom-config` and device-tree model path.
+- New unprivileged shell test suite under `tests/` — functions
+  sed-extracted, externals mocked, assertions on files and logs:
+- `test-install.sh` — `configure_bootloader()` against a mocked
+  `rpi-eeprom-config` and device-tree model path.
+- `test-ini-blocks.sh` — the `install_ini_block`/`remove_ini_block`
+  round-trip, the `clean_legacy_*` helpers, and the config.txt
+  `[all]`-orphan perl.
+- `test-args.sh` — `install.sh` argument parsing.
+- `test-persist.sh` — the charge-mode persistence script.
+- GitHub Actions runs `bash -n`, `shellcheck -S warning`, and every
+  suite on each push and pull request.
 
 **Note**
 - The kernel module is unchanged from v0.4.5; the version is bumped to
