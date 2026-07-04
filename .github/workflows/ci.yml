@@ -30,3 +30,18 @@ jobs:
             echo "== $t =="
             bash "$t"
           done
+
+      # Fail if a tracked file is missing from the "## Repository layout"
+      # tree in README.md, so a new file cannot rot out of the diagram.
+      - name: README repository-layout tree is current
+        run: |
+          tree=$(awk '/^## Repository layout/{f=1} f&&/^```/{n++; next} f&&n==1{print} n==2{exit}' README.md)
+          fail=0
+          for f in $(git ls-files); do
+            re=$(basename "$f" | sed 's/[].[*^$]/\\&/g')
+            if ! printf '%s\n' "$tree" | grep -qE "(^|[ /])${re}( |$)"; then
+              echo "Missing from README '## Repository layout': $f"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || { echo "Update the tree in README.md."; exit 1; }

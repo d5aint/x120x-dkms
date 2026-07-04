@@ -1313,6 +1313,30 @@ Set `battery_mah` to your total pack capacity — number of cells
 multiplied by per-cell capacity.  For example, an X1206 with four
 5000 mAh cells: `battery_mah=20000`.
 
+## Repository layout
+
+```text
+x120x-dkms/
+├── README.md
+├── LICENSE
+├── .gitignore                — build-artifact ignore rules
+├── Makefile                  — DKMS build entry point
+├── dkms.conf                 — DKMS package definition
+├── install.sh                — installer (see Installation)
+├── uninstall.sh              — uninstaller (see Uninstallation)
+├── x120x-overlay.dts         — device tree overlay source
+├── suptronics,x120x.yaml     — DT binding schema (upstreaming)
+├── src/
+│   ├── x120x.c               — the kernel driver
+│   └── Kbuild
+├── tests/                    — shell test suite (see Testing)
+│   ├── test-install.sh
+│   ├── test-ini-blocks.sh
+│   ├── test-args.sh
+│   └── test-persist.sh
+└── .github/workflows/ci.yml  — CI: bash -n, shellcheck, tests
+```
+
 ## Migrating from GPIO scripts
 
 Many users of these boards run Python scripts that access GPIO6 and
