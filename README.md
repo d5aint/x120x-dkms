@@ -67,11 +67,11 @@ The table assumes 3000 mAh 18650 cells and 5000 mAh 21700 cells — check
 the mAh printed on your actual cells and multiply by the cell count if
 yours differ.  For the external-pack boards (X1203, X1209, and the
 experimental X708) replace `<your_capacity>` with your pack's total
-capacity in mAh.  The
-X728/X708/X729 rows are **experimental and untested** — see
-*Experimental board support* before relying on them.  `Fast` is the default charge mode, so it is omitted
-above; for a frequently cycled or portable build add `--charge-mode
-longlife` (see *Choosing a profile: runtime vs. longevity*).
+capacity in mAh.  The X728/X708/X729 rows are **experimental and
+untested** — see *Experimental board support* before relying on them.
+`Fast` is the default charge mode, so it is omitted above; for a
+frequently cycled or portable build add `--charge-mode longlife`
+(see *Choosing a profile: runtime vs. longevity*).
 
 ```bash
 git clone https://github.com/mor-lock/x120x-dkms.git
