@@ -15,6 +15,10 @@ loops.
 If you just want to get up and running quickly, here is everything you
 need in one place.
 
+**Requirements:** Raspberry Pi OS Bookworm or later (64-bit
+recommended).  The driver builds via DKMS against your running kernel,
+so no pre-built binaries are needed.
+
 ### 1. Install the driver
 
 Two charge modes are available — choose one before installing:
@@ -33,26 +37,28 @@ Two charge modes are available — choose one before installing:
   mostly just costs backup runtime — see *Choosing a profile: runtime
   vs. longevity* for the full reasoning.
 
-Replace `<your_capacity>` with your total pack capacity in mAh —
-multiply per-cell capacity by number of cells.  The mAh rating is
-printed on the battery cell itself.  Common values:
+Pick the install command for your board — it sets the pack capacity for
+you.  Copy-paste the one that matches:
 
-| Hardware | Cells | Example capacity |
+| Board | Cells | Install command |
 |---|---|---|
-| X1200, X1201 | 2× 18650 | `--battery-mah 6000` |
-| X1202 | 4× 18650 | `--battery-mah 12000` |
-| X1205 | 2× 21700 | `--battery-mah 10000` |
-| X1206 | 4× 21700 | `--battery-mah 20000` |
+| X1200, X1201 | 2× 18650 | `sudo bash install.sh --battery-mah 6000` |
+| X1202 | 4× 18650 | `sudo bash install.sh --battery-mah 12000` |
+| X1205 | 2× 21700 | `sudo bash install.sh --battery-mah 10000` |
+| X1206 | 4× 21700 | `sudo bash install.sh --battery-mah 20000` |
+
+The table assumes 3000 mAh 18650 cells and 5000 mAh 21700 cells — check
+the mAh printed on your actual cells and multiply by the cell count if
+yours differ.  `Fast` is the default charge mode, so it is omitted
+above; for a frequently cycled or portable build add `--charge-mode
+longlife` (see *Choosing a profile: runtime vs. longevity*).
 
 ```bash
 git clone https://github.com/mor-lock/x120x-dkms.git
 cd x120x-dkms
 
-# Standby UPS on mains (the common case) — maximise backup runtime
-sudo bash install.sh --battery-mah <your_capacity> --charge-mode fast
-
-# Frequently cycled / portable build — extend cell lifespan
-sudo bash install.sh --battery-mah <your_capacity> --charge-mode longlife
+# Run the command for your board from the table above, e.g. an X1206:
+sudo bash install.sh --battery-mah 20000
 
 sudo reboot
 ```
@@ -93,6 +99,94 @@ upower -i /org/freedesktop/UPower/devices/battery_x120x_battery
 That is all that is needed for a fully working installation.  The
 rest of this document covers the driver interface, hardware details,
 and advanced configuration in depth.
+
+---
+
+## Troubleshooting
+
+If something is not working after installing and rebooting, find your
+symptom below.  Every command is safe to copy-paste.
+
+#### No battery icon after reboot
+
+First check that the driver loaded:
+
+```bash
+dmesg | grep x120x
+```
+
+Healthy output looks like:
+
+```
+x120x: loading out-of-tree module taints kernel.
+x120x 1-0036: MAX1704x at 0x36 version 0x000
+x120x 1-0036: x120x UPS ready (battery=x120x-battery ac=x120x-ac charger=x120x-charger hwmon=hwmon3)
+```
+
+- **Nothing at all** — the device-tree overlay is not loading.  Check
+  that `dtoverlay=x120x` is present in `/boot/firmware/config.txt`
+  (under the `[all]` section), and that the reboot actually happened —
+  reboot again if unsure.
+- **Probe or I²C errors** (e.g. `MAX1704x` not found) — the board is
+  not making contact.  Power down, re-seat the Pi firmly on the UPS
+  board's pogo pins, and confirm you passed the right `--board`.
+
+#### Devices exist but no icon in the taskbar
+
+Check whether the power-supply devices are present:
+
+```bash
+ls /sys/class/power_supply/
+```
+
+If you see `x120x-battery`, `x120x-ac`, and `x120x-charger`, the driver
+is fine — this is a desktop/UPower display issue.  Confirm UPower sees
+the battery:
+
+```bash
+upower -e
+```
+
+Then log out and back in; some desktop panels also need the battery
+indicator enabled in their panel/applet settings.
+
+#### capacity reads 0% or nonsense on the first boot
+
+The MAX17043 fuel gauge needs a little time to converge after first
+power-up — give it a few minutes.  If it stays at 0% with the charger
+connected, the cells may have been deep-discharged; see *Dead battery
+detection* and the deep-discharge recovery notes.
+
+#### ac_online is 0 with the charger plugged in
+
+This is almost always the GPIO6 AC-detect line floating at boot — see
+*GPIO6 pull-up*.  If the charger LED is lit and `ac_online` stays `0`
+across reboots (with `gpio=6=pu` in `config.txt`), suspect a failed
+board — see *Incident 2* for the field-failure signature.
+
+#### Build failed / DKMS errors
+
+Almost always missing kernel headers.  Install the ones matching your
+running kernel and reinstall:
+
+```bash
+sudo apt install linux-headers-$(uname -r)
+```
+
+See *Step 1* of the manual installation for details.
+
+#### Opening a GitHub issue
+
+If none of the above helps, open an issue and include the output of:
+
+```bash
+dmesg | grep x120x
+dkms status
+cat /proc/device-tree/model   # Pi model
+cat /etc/os-release           # OS version
+```
+
+plus which UPS board you have.
 
 ---
 
