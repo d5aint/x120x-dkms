@@ -375,6 +375,10 @@ DKMS_SRC="/usr/src/${PKG_NAME}-${PKG_VERSION}"
 info "Step 2/10 — Copying source to DKMS tree (${DKMS_SRC})..."
 rm -rf "${DKMS_SRC}"
 cp -r "${SRC_DIR}" "${DKMS_SRC}"
+# Root builds from this tree, so strip any group/other-writable bits
+# inherited from the user's checkout — a non-root user must not be able
+# to alter sources that are then compiled and installed as root.
+chmod -R go-w "${DKMS_SRC}"
 ok "Source copied"
 
 # -------------------------------------------------------------------------
@@ -498,7 +502,7 @@ ok "Overlay installed"
 
 info "Step 7/10 — Enabling overlay in ${CONFIG_TXT}..."
 
-if grep -q "dtoverlay=x120x" "${CONFIG_TXT}"; then
+if grep -qE '^[[:space:]]*dtoverlay=x120x([[:space:]]|$)' "${CONFIG_TXT}"; then
     ok "dtoverlay=x120x already present in ${CONFIG_TXT}"
 else
     # Always append at the bottom. If the last section header in the
@@ -518,7 +522,7 @@ fi
 # before the hardware asserts the signal, causing the driver to falsely
 # report ac_online=0 and trigger an unnecessary shutdown even with the
 # charger connected.
-if grep -q "^gpio=6=pu" "${CONFIG_TXT}"; then
+if grep -qE '^[[:space:]]*gpio=6=pu([[:space:]]|$)' "${CONFIG_TXT}"; then
     ok "gpio=6=pu already present in ${CONFIG_TXT}"
 else
     printf 'gpio=6=pu\n' >> "${CONFIG_TXT}"

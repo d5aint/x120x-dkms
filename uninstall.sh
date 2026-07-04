@@ -187,7 +187,7 @@ if [ "${REMOVED_ANY}" -eq 0 ]; then
 fi
 
 # Also clean up any orphaned source trees that dkms did not know about
-for src in /usr/src/${PKG_NAME}-*; do
+for src in /usr/src/${PKG_NAME}-[0-9]*; do
     [ -d "${src}" ] || continue
     rm -rf "${src}"
     ok "Removed orphaned DKMS source tree: ${src}"

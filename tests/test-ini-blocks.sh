@@ -173,6 +173,20 @@ printf '[cm4]\nfoo=1\n' > "${WORK}/o"; cp "${WORK}/o" "${WORK}/f"
 run_all_perl "${WORK}/f"
 assert "no [all]: file unchanged" 'cmp -s "${WORK}/o" "${WORK}/f"'
 
+# ---------------------------------------------------------------------------
+echo "Step 7 overlay-presence check (anchored)"
+# ---------------------------------------------------------------------------
+# The installer's "already present" grep must not treat a commented-out or
+# prefixed line as installed, or it would skip appending the overlay.
+OVL_RE=$(sed -n "s/.*grep -qE '\([^']*dtoverlay[^']*\)'.*/\1/p" "${INSTALL_SH}")
+[ -n "${OVL_RE}" ] || { echo "could not extract overlay grep from install.sh" >&2; exit 2; }
+matches() { printf '%s\n' "$1" | grep -qE "${OVL_RE}"; }
+assert "overlay: active line matches"          'matches "dtoverlay=x120x"'
+assert "overlay: leading whitespace matches"   'matches "    dtoverlay=x120x"'
+assert "overlay: commented-out does NOT match" '! matches "#dtoverlay=x120x"'
+assert "overlay: prefixed does NOT match"       '! matches "xdtoverlay=x120x"'
+assert "overlay: suffixed does NOT match"       '! matches "dtoverlay=x120x-extra"'
+
 echo
 echo "Results: ${PASS} passed, ${FAIL} failed"
 [ "${FAIL}" -eq 0 ]
