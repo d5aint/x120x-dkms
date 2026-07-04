@@ -1,0 +1,32 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-latest ships shellcheck; install only if it is missing.
+      - name: Ensure shellcheck
+        run: shellcheck --version || (sudo apt-get update && sudo apt-get install -y shellcheck)
+
+      # bash -n only syntax-checks its first file argument, so loop.
+      - name: Syntax check (bash -n)
+        run: |
+          for f in install.sh uninstall.sh tests/*.sh; do
+            echo "bash -n $f"
+            bash -n "$f"
+          done
+
+      - name: shellcheck (-S warning)
+        run: shellcheck -S warning install.sh uninstall.sh tests/*.sh
+
+      # Everything is mocked; the tests run unprivileged.
+      - name: Run tests
+        run: |
+          for t in tests/*.sh; do
+            echo "== $t =="
+            bash "$t"
+          done

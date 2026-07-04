@@ -11,6 +11,9 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
+# SKIP_EEPROM and X120X_CLEANUP look unused to shellcheck but are read by
+# the eval-extracted configure_bootloader(), which it cannot see.
+# shellcheck disable=SC2034
 set -uo pipefail   # deliberately not -e: we want every case to run
 
 HERE=$(cd "$(dirname "$0")" && pwd)

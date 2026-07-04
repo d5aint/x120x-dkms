@@ -50,7 +50,7 @@ echo "install_ini_block <-> remove_ini_block round-trip"
 # byte-identical — including a user-owned key and a user trailing blank line.
 roundtrip_ok() {  # name  printf-content
     local o="${WORK}/o" f="${WORK}/f"
-    printf "$2" > "$o"; cp "$o" "$f"
+    printf '%b' "$2" > "$o"; cp "$o" "$f"
     install_ini_block "$f" "Login" "${TAG}" "HandleLowBattery=poweroff" >/dev/null 2>&1
     remove_ini_block  "$f" "${TAG}" >/dev/null 2>&1
     assert "$1" 'cmp -s "'"$o"'" "'"$f"'"'

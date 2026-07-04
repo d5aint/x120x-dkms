@@ -362,7 +362,7 @@ done
 info "Step 1/10 — Installing dependencies..."
 apt-get update \
     || warn "apt-get update failed — continuing with existing package index"
-apt-get install -y dkms linux-headers-$(uname -r) \
+apt-get install -y dkms "linux-headers-$(uname -r)" \
     || die "apt-get install failed"
 ok "Dependencies installed"
 
