@@ -77,3 +77,28 @@ jobs:
       # Errors fail the job; dtc warnings are allowed (dtc exits 0 on them).
       - name: Compile the device tree overlay
         run: dtc -@ -I dts -O dtb -o /tmp/x120x.dtbo x120x-overlay.dts
+
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install build deps + sparse
+        run: sudo apt-get update && sudo apt-get install -y build-essential linux-headers-generic sparse
+
+      # W=1 enables kernel extra-warning checks (incl. kernel-doc).  They do
+      # not fail the build on their own, so grep the output and fail on any.
+      # KCFLAGS=-Werror additionally turns compiler warnings into errors.
+      - name: make W=1 (warnings fail)
+        run: |
+          KDIR=$(ls -d /lib/modules/*/build | sort -V | tail -1)
+          echo "Building against $KDIR"
+          make KDIR="$KDIR" W=1 KCFLAGS=-Werror 2>&1 | tee w1.log
+          if grep -qiE 'warning' w1.log; then echo "W=1 produced warnings"; exit 1; fi
+
+      # sparse prints findings but exits 0; fail on any on our source.
+      - name: sparse (make C=1)
+        run: |
+          KDIR=$(ls -d /lib/modules/*/build | sort -V | tail -1)
+          make KDIR="$KDIR" C=1 2>&1 | tee sparse.log
+          if grep -qE 'x120x\.c.*(warning|error)' sparse.log; then echo "sparse findings"; exit 1; fi

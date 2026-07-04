@@ -1911,6 +1911,8 @@ the first step.
 - New `build` job compile-checks the module against generic kernel
   headers with `KCFLAGS=-Werror` (never loaded); new `overlay` job
   compiles `x120x-overlay.dts` with `dtc` (errors fail, warnings allowed).
+- New `static` job runs `make W=1` (kernel extra-warnings and kernel-doc,
+  any warning fails) and `sparse` (`make C=1`) over the driver.
 
 **Project**
 - Issue templates: a bug report mirroring the Troubleshooting checklist,
