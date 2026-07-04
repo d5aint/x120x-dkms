@@ -438,10 +438,15 @@ capacity the cells have retained to that point.
 >   especially, **temperature** — calendar aging roughly doubles per
 >   +10 °C, so a pack running warm (e.g. in the Pi's exhaust) ages far
 >   faster than this and *both* columns shrink.
-> - **Cycle aging is neglected** — a standby UPS sees very few cycles,
->   so calendar aging dominates.  This breaks down for a frequently
->   cycled build (e.g. portable), where cycle aging takes over — see
->   *Frequently cycled builds* below.
+> - **Cycle aging is small but not quite zero** — even in standby the
+>   pack slowly self-drains (board/gauge quiescent draw on the battery
+>   rail) and tops back up, a shallow top-up sawtooth of a few
+>   full-equivalent cycles per year.  That adds marginally more wear
+>   under `Fast` (it cycles at 95–100%, the harshest region) than under
+>   `Long Life` (75–80%), but it is dwarfed by the calendar-aging
+>   difference above, so calendar aging still dominates.  A genuinely
+>   cycled build (e.g. portable) is a different regime — see *Frequently
+>   cycled builds* below.
 > - Runtime is treated as proportional to the state-of-charge span,
 >   ignoring the nonlinear "knee" near the bottom of the discharge curve.
 
