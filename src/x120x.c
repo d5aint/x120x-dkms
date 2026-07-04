@@ -305,14 +305,30 @@ MODULE_PARM_DESC(conservation_mode_default,
  * @charger:		charger power_supply device (GPIO16 charge control)
  * @gpio_ac:		descriptor for AC-present GPIO (GPIO6), may be NULL
  * @gpio_chrg:		descriptor for charge-control GPIO (GPIO16), may be NULL
+ * @gpio_poweroff:	descriptor for the power-off pulse GPIO; NULL on X120x
+ * @has_charge_ctrl:	true if the board has charge control (Long Life supported)
  * @lock:		mutex protecting all cached fields below
  * @voltage_uv:		last good VCELL reading in uV
  * @capacity_pct:	last good SOC reading in integer percent (0-100)
+ * @capacity_256:	last good SOC as the raw 1/256-percent word (full precision)
  * @ac_online:		1 if mains present, 0 if on battery
  * @conservation_mode:	true when Long life mode is active (charge_type=LONGLIFE)
+ * @charger_inhibited:	cached GPIO16 state (true = charging stopped)
  * @present:		false when consecutive I2C errors exceed threshold
  * @i2c_errors:		consecutive I2C read failure counter
+ * @energy_now_uwh:	current energy in uWh (energy_full scaled by SOC)
+ * @energy_full_uwh:	full-charge energy in uWh (battery_mah times 3700 mV)
+ * @energy_empty_uwh:	empty-energy floor in uWh (0, for UPower)
+ * @rate_prev_energy_uwh: energy at the previous SOC change (for rate calc)
+ * @rate_prev_time_us:	ktime (us) at the previous SOC change
+ * @energy_rate_uw:	charge/discharge rate in uW (negative = discharging)
+ * @rate_last_change_us: ktime (us) of the last SOC change
+ * @dead_cand_start_us:	ktime (us) the cell first dropped below the dead threshold
+ * @dead_cand_uv:	cell voltage (uV) when the dead-battery window started
+ * @battery_dead:	true once a dead battery is confirmed
  * @work:		delayed work item driving the polling loop
+ * @heartbeat_ticks:	poll ticks left until a forced power_supply_changed()
+ * @hwmon_dev:		hwmon device exposing voltage/power to sensors
  */
 struct x120x_chip {
 	struct i2c_client	*client;
