@@ -110,6 +110,14 @@ assert "1 non-Pi5: returns 0"        '[ "'"$rc"'" -eq 0 ]'
 assert "1 non-Pi5: no --apply"       '[ ! -s "${MOCK_APPLY_LOG}" ]'
 assert "1 non-Pi5: logs 'not required'" 'grep -q "not required on this model" "${LOGCAP}"'
 
+# 1b — Raspberry Pi 500 must NOT match the "Raspberry Pi 5 " pattern.
+reset
+printf 'Raspberry Pi 500 Rev 1.0\0' > "${WORK}/model"
+run_cb; rc=$?
+assert "1b Pi 500: returns 0"           '[ "'"$rc"'" -eq 0 ]'
+assert "1b Pi 500: no --apply"          '[ ! -s "${MOCK_APPLY_LOG}" ]'
+assert "1b Pi 500: logs 'not required'" 'grep -q "not required on this model" "${LOGCAP}"'
+
 # 2 — Model file absent: same skip path, exit 0.
 reset
 export DT_MODEL_PATH="${WORK}/no-such-model"

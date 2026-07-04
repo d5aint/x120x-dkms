@@ -44,7 +44,8 @@ Two charge modes are available — choose one before installing:
   vs. longevity* for the full reasoning.
 
 Pick the install command for your board — it sets the pack capacity for
-you.  Copy-paste the one that matches:
+you.  Run it after cloning the repository (below); copy-paste the one
+that matches:
 
 | Board | Cells | Install command |
 |---|---|---|

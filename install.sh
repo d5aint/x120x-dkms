@@ -198,7 +198,8 @@ configure_bootloader() {
         model=$(tr -d '\0' < "${DT_MODEL_PATH}")
     fi
     case "${model}" in
-        *"Raspberry Pi 5"*) ;;
+        # Trailing space so "Raspberry Pi 500 ..." does not match "Pi 5".
+        *"Raspberry Pi 5 "*) ;;
         *)
             info "Bootloader configuration not required on this model"
             return 0

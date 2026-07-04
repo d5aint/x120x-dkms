@@ -187,6 +187,15 @@ assert "overlay: commented-out does NOT match" '! matches "#dtoverlay=x120x"'
 assert "overlay: prefixed does NOT match"       '! matches "xdtoverlay=x120x"'
 assert "overlay: suffixed does NOT match"       '! matches "dtoverlay=x120x-extra"'
 
+# Same anchoring for the gpio=6=pu sibling check.
+GPIO_RE=$(sed -n "s/.*grep -qE '\([^']*gpio=6=pu[^']*\)'.*/\1/p" "${INSTALL_SH}")
+[ -n "${GPIO_RE}" ] || { echo "could not extract gpio grep from install.sh" >&2; exit 2; }
+gmatches() { printf '%s\n' "$1" | grep -qE "${GPIO_RE}"; }
+assert "gpio: active line matches"          'gmatches "gpio=6=pu"'
+assert "gpio: leading whitespace matches"   'gmatches "    gpio=6=pu"'
+assert "gpio: commented-out does NOT match" '! gmatches "#gpio=6=pu"'
+assert "gpio: suffixed does NOT match"       '! gmatches "gpio=6=pux"'
+
 echo
 echo "Results: ${PASS} passed, ${FAIL} failed"
 [ "${FAIL}" -eq 0 ]
