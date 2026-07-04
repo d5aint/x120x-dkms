@@ -1908,9 +1908,12 @@ the first step.
   interface cannot express), so `75` / `80` there in Fast is expected.
 
 **CI**
-- New `build` job compile-checks the module against generic kernel
-  headers with `KCFLAGS=-Werror` (never loaded); new `overlay` job
-  compiles `x120x-overlay.dts` with `dtc` (errors fail, warnings allowed).
+- Module compile-checks (`KCFLAGS=-Werror`, never loaded): a `build`
+  matrix against generic and newest-HWE headers, a `build-lts` job
+  against an older LTS kernel (Ubuntu 22.04, ~5.15) in a container, and a
+  `build-armhf` job that verifies the 32-bit cross toolchain (a real
+  armhf build needs an armhf kernel tree, reported by users).  New
+  `overlay` job compiles `x120x-overlay.dts` with `dtc`.
 - New `static` job runs `make W=1` (kernel extra-warnings and kernel-doc,
   any warning fails) and `sparse` (`make C=1`) over the driver.
 

@@ -49,22 +49,71 @@ jobs:
           done
           [ "$fail" -eq 0 ] || { echo "Update the tree in README.md."; exit 1; }
 
+  # Compile-check the module against the runner's stock generic headers and
+  # the newest HWE headers.  Compile only — the module is never loaded.
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [generic, hwe]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Install build deps
-        run: sudo apt-get update && sudo apt-get install -y build-essential linux-headers-generic
+      - name: Install headers (${{ matrix.flavor }})
+        run: |
+          sudo apt-get update
+          if [ "${{ matrix.flavor }}" = hwe ]; then
+            sudo apt-get install -y build-essential "linux-headers-generic-hwe-$(lsb_release -rs)" \
+              || sudo apt-get install -y build-essential linux-headers-generic
+          else
+            sudo apt-get install -y build-essential linux-headers-generic
+          fi
 
-      # Compile-check only — the module is never loaded here.
       # KCFLAGS=-Werror turns any compiler warning into a failure.
       - name: Compile-check the module (-Werror)
         run: |
-          KDIR=/lib/modules/$(ls /lib/modules | head -1)/build
-          [ -d "$KDIR" ] || KDIR=$(ls -d /lib/modules/*/build | head -1)
+          KDIR=$(ls -d /lib/modules/*/build | sort -V | tail -1)
           echo "Building against $KDIR"
           make KDIR="$KDIR" KCFLAGS=-Werror
+
+  # Older LTS kernel (Ubuntu 22.04 ~ 5.15) via container, to catch
+  # regressions against kernels older than the runner's.
+  build-lts:
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install build deps
+        run: |
+          apt-get update
+          apt-get install -y build-essential linux-headers-generic make
+
+      - name: Compile-check against 22.04 generic (-Werror)
+        run: |
+          KDIR=$(ls -d /lib/modules/*/build | sort -V | tail -1)
+          echo "Building against $KDIR"
+          make KDIR="$KDIR" KCFLAGS=-Werror
+
+  # armhf (32-bit) cross toolchain.  A kernel module cannot be compiled
+  # without a configured kernel tree for the target arch, and Ubuntu's x86
+  # runners ship no armhf/RPi kernel headers (linux-headers-*:armhf pulls an
+  # armhf kernel that will not resolve on x86).  We do NOT fake a build: this
+  # job verifies the cross toolchain installs; real armhf results come from
+  # users via the hardware-report issue template.
+  build-armhf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install armhf cross toolchain (crossbuild-essential-armhf)
+        run: sudo apt-get update && sudo apt-get install -y crossbuild-essential-armhf
+
+      - name: Verify toolchain (ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-)
+        run: |
+          arm-linux-gnueabihf-gcc --version | head -1
+          echo "armhf kernel-module build is not run here — no armhf kernel tree on x86 runners (see job comment)."
 
   overlay:
     runs-on: ubuntu-latest
