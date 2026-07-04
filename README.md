@@ -11,7 +11,7 @@ for these boards (e.g. the
 [X1206 page](https://wiki.geekworm.com/X1206)).
 
 Provides native Linux power supply integration equivalent to a laptop
-battery — battery icon in the taskbar, accurate state of charge,
+battery — battery icon in the taskbar, accurate state of charge (SoC),
 clean undervoltage shutdown, and selectable Long Life battery
 preservation mode.  No custom scripts, no daemons, no polling
 loops.
@@ -22,33 +22,25 @@ If you just want to get up and running quickly, here is everything you
 need in one place.
 
 **Requirements:** Raspberry Pi OS Bookworm or later (64-bit
-recommended), **kernel 6.3 or newer** — the driver uses the modern
-one-arg i2c `.probe`, the sys-off handler framework, and the `void` i2c
-`.remove` (an up-to-date Bookworm, `apt full-upgrade`, is on 6.6/6.12).
-The driver builds via DKMS against your running kernel, so no pre-built
-binaries are needed.
+recommended), fully updated — run `sudo apt update && sudo apt
+full-upgrade` first.  You need kernel 6.3 or newer; check with `uname
+-r` (a fully-updated Bookworm is on 6.6 or 6.12).  The driver builds via
+DKMS against your running kernel, so there are no pre-built binaries to
+match.  (For maintainers: the 6.3 floor comes from the driver's use of
+the modern one-arg i2c `.probe`, the sys-off handler framework, and the
+`void` i2c `.remove`.)
 
 ### 1. Install the driver
 
-Two charge modes are available — choose one before installing:
+Clone the repository:
 
-- **Fast** (default) — charges to 100%, then disables the charger and
-  leaves the battery floating.  Charging resumes when SoC drops to 95%
-  as the board's standby drain slowly pulls it down.  Best for a
-  **standby UPS** (on mains, occasional outages) — it maximises backup
-  runtime, which is what matters when an outage is unannounced.  This is
-  the right choice for almost all installs.
-- **Long Life** — charges to 80%, then disables the charger and leaves
-  the battery floating.  Charging resumes when SoC drops to 75%.  Best
-  for a **frequently cycled build** (e.g. a
-  portable unit charged and discharged most days), where keeping cells
-  below full charge greatly extends cycle life.  On an always-on UPS it
-  mostly just costs backup runtime — see *Choosing a profile: runtime
-  vs. longevity* for the full reasoning.
+```bash
+git clone https://github.com/mor-lock/x120x-dkms.git
+cd x120x-dkms
+```
 
-Pick the install command for your board — it sets the pack capacity for
-you.  Run it after cloning the repository (below); copy-paste the one
-that matches:
+Now run the install command for your board — it sets the battery pack
+capacity for you.  Copy-paste the one that matches:
 
 | Board | Cells | Install command |
 |---|---|---|
@@ -72,17 +64,18 @@ yours differ.  For the external-pack boards (X1203, X1209, and the
 experimental X708) replace `<your_capacity>` with your pack's total
 capacity in mAh.  The X728/X708/X729 rows are **experimental and
 untested** — see *Experimental board support* before relying on them.
-`Fast` is the default charge mode, so it is omitted above; for a
-frequently cycled or portable build add `--charge-mode longlife`
-(see *Choosing a profile: runtime vs. longevity*).
+`Fast` is the default, so it is omitted above; to start in Long Life
+from the outset, add `--charge-mode longlife` (see *Battery conservation
+mode*).
+
+The driver defaults to **Fast** mode — it charges to 100%, which is
+right for almost every UPS install.  A battery-preserving **Long Life**
+mode can be enabled at any time after install — see *Battery
+conservation mode*.
+
+Then reboot:
 
 ```bash
-git clone https://github.com/mor-lock/x120x-dkms.git
-cd x120x-dkms
-
-# Run the command for your board from the table above, e.g. an X1206:
-sudo bash install.sh --battery-mah 20000
-
 sudo reboot
 ```
 
@@ -91,18 +84,11 @@ settings — `POWER_OFF_ON_HALT=1` and `PSU_MAX_CURRENT=5000` — which take
 effect at that same reboot; see *Required bootloader settings (Raspberry
 Pi 5)* below for what they do and the `--skip-eeprom` opt-out.
 
-The charge mode is persisted across reboots automatically.  It can
-also be changed at any time without reinstalling:
-
-```bash
-echo "Long Life" | sudo tee /sys/class/power_supply/x120x-charger/charge_type
-echo "Fast"      | sudo tee /sys/class/power_supply/x120x-charger/charge_type
-```
-
 ### 2. Monitor battery state
 
-After rebooting, the battery appears as a standard Linux power supply.
-The easiest way to see full details is `gnome-power-statistics`:
+After the reboot, a battery icon appears in the desktop taskbar and the
+battery shows up as a standard Linux power supply.  The easiest way to
+see full details is `gnome-power-statistics`:
 
 ```bash
 sudo apt install gnome-power-manager
@@ -122,6 +108,8 @@ upower -i /org/freedesktop/UPower/devices/battery_x120x_battery
 That is all that is needed for a fully working installation.  The
 rest of this document covers the driver interface, hardware details,
 and advanced configuration in depth.
+
+No icon after rebooting?  See *Troubleshooting* below.
 
 ---
 
@@ -1919,6 +1907,9 @@ the first step.
   its marker block on reinstall — a repeat install is now byte-identical.
 
 **Documentation**
+- Getting started restructured for first-time users (newbie-first
+  requirements, commands in execution order); charge-mode selection
+  moved to *Battery conservation mode*.
 - Note that `charge_control_*_threshold` reports the Long Life band even
   in `Fast` mode (Fast uses a fixed 100% / 95% band the standard sysfs
   interface cannot express), so `75` / `80` there in Fast is expected.
