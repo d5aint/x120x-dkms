@@ -1280,15 +1280,22 @@ sysfs paths), and assert on the resulting files and logs — nothing
 touches the real system, so they run unprivileged:
 
 ```bash
-bash tests/test-install.sh      # bootloader EEPROM staging
-bash tests/test-ini-blocks.sh   # logind/UPower block round-trip, config.txt
-bash tests/test-args.sh         # argument parsing
-bash tests/test-persist.sh      # charge-mode persistence script
+bash tests/test-install.sh        # bootloader EEPROM staging
+bash tests/test-ini-blocks.sh     # logind/UPower block round-trip, config.txt
+bash tests/test-args.sh           # argument parsing
+bash tests/test-persist.sh        # charge-mode persistence script
+bash tests/test-collect-debug.sh  # diagnostics collector
 ```
 
-CI runs all of them, plus `bash -n` and `shellcheck -S warning` on
-`install.sh`, `uninstall.sh`, and the tests, on every push and pull
-request.
+Or run the whole suite at once:
+
+```bash
+make test
+```
+
+CI runs all of them, plus `bash -n` and `shellcheck -S warning` on the
+scripts, a module compile-check (`KCFLAGS=-Werror`), and a device-tree
+overlay compile, on every push and pull request.
 
 ## Verifying operation
 
@@ -1918,6 +1925,10 @@ the first step.
   runs cleanly whether or not the driver is loaded.  Referenced from
   Troubleshooting and the bug template, with a test covering the
   driver-present and driver-absent paths.
+
+**Build**
+- New `make test` target runs the whole shell suite (documented in the
+  Testing section).
 
 ### v0.4.6 — Automatic Pi 5 bootloader configuration, troubleshooting guide
 

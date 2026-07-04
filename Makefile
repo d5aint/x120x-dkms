@@ -20,4 +20,8 @@ install:
 	$(MAKE) -C $(KDIR) M=$(PWD)/src modules_install
 	depmod -A
 
-.PHONY: all clean install
+# Run the whole unprivileged shell test suite.
+test:
+	@for t in tests/*.sh; do echo "== $$t =="; bash "$$t" || exit 1; done
+
+.PHONY: all clean install test
