@@ -49,7 +49,8 @@ that matches:
 
 | Board | Cells | Install command |
 |---|---|---|
-| X1200, X1201 | 2× 18650 | `sudo bash install.sh --battery-mah 6000` |
+| X1200 | 2× 18650 | `sudo bash install.sh --battery-mah 6000` |
+| X1201 | 2× 18650 | `sudo bash install.sh --battery-mah 6000` |
 | X1202 | 4× 18650 | `sudo bash install.sh --battery-mah 12000` |
 | X1203 | External Li-ion | `sudo bash install.sh --battery-mah <your_capacity>` |
 | X1205 | 2× 21700 | `sudo bash install.sh --battery-mah 10000` |
@@ -57,9 +58,9 @@ that matches:
 | X1207 | 1× 21700 (PoE) | `sudo bash install.sh --battery-mah 5000` |
 | X1208 | 1× 21700 + NVMe | `sudo bash install.sh --battery-mah 5000` |
 | X1209 | External Li-ion | `sudo bash install.sh --battery-mah <your_capacity>` |
-| X728 V2.x *(experimental)* | 2× 18650 | `sudo bash install.sh --board x728v2 --battery-mah 6000` |
-| X728 V1.x *(experimental)* | 2× 18650 | `sudo bash install.sh --board x728v1 --battery-mah 6000` |
 | X708 *(experimental)* | External Li-ion | `sudo bash install.sh --board x708 --battery-mah <your_capacity>` |
+| X728 V1.x *(experimental)* | 2× 18650 | `sudo bash install.sh --board x728v1 --battery-mah 6000` |
+| X728 V2.x *(experimental)* | 2× 18650 | `sudo bash install.sh --board x728v2 --battery-mah 6000` |
 | X729 *(experimental)* | 2× 18650 | `sudo bash install.sh --board x729 --battery-mah 6000` |
 
 The table assumes 3000 mAh 18650 cells and 5000 mAh 21700 cells — check
