@@ -15,6 +15,9 @@
 #   --board VARIANT        Board variant (default: x120x).
 #                          Supported: x120x, x728v2, x728v1, x708, x729
 #                          Variants other than x120x are EXPERIMENTAL (untested).
+#   --skip-eeprom          Do not modify Raspberry Pi bootloader EEPROM settings
+#                          (POWER_OFF_ON_HALT, PSU_MAX_CURRENT).  You are then
+#                          responsible for configuring them manually — see README.
 #
 # Copyright (C) 2026 Edvard Fielding <mor-lock@users.noreply.github.com>
 # SPDX-License-Identifier: GPL-2.0-or-later
@@ -150,12 +153,97 @@ clean_legacy_upower() {
 }
 
 # -------------------------------------------------------------------------
+# Pi 5 bootloader EEPROM configuration
+#
+# POWER_OFF_ON_HALT=1 is required for the driver's core behaviour (clean
+# power-off and automatic restart when mains returns); PSU_MAX_CURRENT=5000
+# suppresses spurious low-power warnings.  Anyone installing this driver
+# has an X120x UPS board, so both values are unconditionally correct — no
+# negotiation with pre-existing values is needed.
+#
+# `rpi-eeprom-config --apply` only stages the update on the boot
+# partition; the bootloader flashes it early during the next boot, so it
+# lands with the same reboot this installer already requests.
+#
+# RPI_EEPROM_CONFIG and DT_MODEL_PATH are overridable so the test harness
+# can inject mocks.
+# -------------------------------------------------------------------------
+
+configure_bootloader() {
+    if [ "${SKIP_EEPROM}" -eq 1 ]; then
+        info "Skipping bootloader EEPROM configuration (--skip-eeprom)"
+        return 0
+    fi
+
+    # Only the Pi 5 needs these settings (the X1209 runs on Pi 3/4, where
+    # the power-off GPIO pulse handles shutdown).  Read the NUL-terminated
+    # device-tree model; skip on any other model, or if the file is absent
+    # (a non-Pi build/test environment).
+    local model=""
+    if [ -r "${DT_MODEL_PATH}" ]; then
+        model=$(tr -d '\0' < "${DT_MODEL_PATH}")
+    fi
+    case "${model}" in
+        *"Raspberry Pi 5"*) ;;
+        *)
+            info "Bootloader configuration not required on this model"
+            return 0
+            ;;
+    esac
+
+    if ! command -v "${RPI_EEPROM_CONFIG}" >/dev/null 2>&1; then
+        warn "rpi-eeprom-config not found — bootloader EEPROM not configured."
+        warn "Set POWER_OFF_ON_HALT=1 and PSU_MAX_CURRENT=5000 manually; see"
+        warn "the README (Required bootloader settings)."
+        return 0
+    fi
+
+    local cur new
+    cur=$(mktemp -t x120x-eeprom-cur.XXXXXX) \
+        || { warn "mktemp failed — skipping bootloader EEPROM setup."; return 0; }
+    new=$(mktemp -t x120x-eeprom-new.XXXXXX) \
+        || { warn "mktemp failed — skipping bootloader EEPROM setup."; rm -f -- "${cur}"; return 0; }
+    chmod 600 -- "${cur}" "${new}"
+
+    if ! "${RPI_EEPROM_CONFIG}" > "${cur}" 2>/dev/null; then
+        warn "Could not read current bootloader config — skipping EEPROM setup."
+        rm -f -- "${cur}" "${new}"
+        return 0
+    fi
+
+    if grep -qx 'POWER_OFF_ON_HALT=1' "${cur}" \
+       && grep -qx 'PSU_MAX_CURRENT=5000' "${cur}"; then
+        ok "Bootloader already configured (POWER_OFF_ON_HALT=1, PSU_MAX_CURRENT=5000)"
+        rm -f -- "${cur}" "${new}"
+        return 0
+    fi
+
+    # Drop any existing values for our two keys, then append the required
+    # ones.  This rewrites a differing prior value (e.g. =0) with no
+    # special case, and leaves every other key untouched.  `|| true` keeps
+    # set -e happy if grep -v matches nothing.
+    grep -vE '^(POWER_OFF_ON_HALT|PSU_MAX_CURRENT)=' "${cur}" > "${new}" || true
+    printf 'POWER_OFF_ON_HALT=1\nPSU_MAX_CURRENT=5000\n' >> "${new}"
+
+    if "${RPI_EEPROM_CONFIG}" --apply "${new}" >/dev/null 2>&1; then
+        ok "Bootloader update staged (POWER_OFF_ON_HALT=1, PSU_MAX_CURRENT=5000) — takes effect at the reboot below."
+    else
+        warn "rpi-eeprom-config --apply failed — configure the bootloader"
+        warn "manually; see the README (Required bootloader settings)."
+    fi
+
+    rm -f -- "${cur}" "${new}"
+    return 0
+}
+
+# -------------------------------------------------------------------------
 # Argument parsing
 # -------------------------------------------------------------------------
 
 OPT_MAH=""
 OPT_CHARGE_MODE=""
 OPT_BOARD=""
+SKIP_EEPROM=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -186,8 +274,16 @@ while [ $# -gt 0 ]; do
             esac
             shift 2
             ;;
+        --skip-eeprom)
+            SKIP_EEPROM=1
+            shift
+            ;;
         --help|-h)
-            echo "Usage: sudo bash install.sh [--battery-mah N] [--charge-mode fast|longlife] [--board x120x|x728v2|x728v1|x708|x729]"
+            echo "Usage: sudo bash install.sh [--battery-mah N] [--charge-mode fast|longlife] [--board x120x|x728v2|x728v1|x708|x729] [--skip-eeprom]"
+            echo
+            echo "  --skip-eeprom  Do not modify Raspberry Pi bootloader EEPROM settings"
+            echo "                 (POWER_OFF_ON_HALT, PSU_MAX_CURRENT).  You are then"
+            echo "                 responsible for configuring them manually — see README."
             exit 0
             ;;
         *)
@@ -203,6 +299,10 @@ done
 PKG_NAME="x120x"
 PKG_VERSION="0.4.5"
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# External command and device-tree model path — overridable for testing.
+RPI_EEPROM_CONFIG="${RPI_EEPROM_CONFIG:-rpi-eeprom-config}"
+DT_MODEL_PATH="${DT_MODEL_PATH:-/proc/device-tree/model}"
 
 # Detect Pi model for correct boot path
 if [ -f /boot/firmware/config.txt ]; then
@@ -403,45 +503,12 @@ else
 fi
 
 # -------------------------------------------------------------------------
-# Step 8: Bootloader check (Pi 5 only)
+# Step 8: Configure bootloader EEPROM (Pi 5 only)
 # -------------------------------------------------------------------------
 
-info "Step 8/10 — Checking bootloader configuration..."
+info "Step 8/10 — Configuring bootloader (Raspberry Pi 5)..."
 
-if grep -q "Raspberry Pi 5" /proc/cpuinfo 2>/dev/null; then
-    CURRENT_EEPROM=$(rpi-eeprom-config 2>/dev/null || true)
-    NEEDS_UPDATE=0
-
-    if echo "${CURRENT_EEPROM}" | grep -q "POWER_OFF_ON_HALT=1"; then
-        ok "POWER_OFF_ON_HALT=1 already set"
-    else
-        NEEDS_UPDATE=1
-        warn "POWER_OFF_ON_HALT is not set to 1."
-        warn "Without this, the Pi may not restart automatically after a"
-        warn "safe shutdown triggered by the UPS on battery exhaustion."
-    fi
-
-    if echo "${CURRENT_EEPROM}" | grep -q "PSU_MAX_CURRENT=5000"; then
-        ok "PSU_MAX_CURRENT=5000 already set"
-    else
-        NEEDS_UPDATE=1
-        warn "PSU_MAX_CURRENT is not set to 5000."
-        warn "Without this, the Pi may log power supply warnings when"
-        warn "drawing high current through the UPS board."
-    fi
-
-    if [ "${NEEDS_UPDATE}" -eq 1 ]; then
-        warn ""
-        warn "To fix, run: sudo rpi-eeprom-config -e"
-        warn "Then add any missing lines:"
-        warn "    POWER_OFF_ON_HALT=1"
-        warn "    PSU_MAX_CURRENT=5000"
-        warn "Save, exit, and reboot."
-    fi
-else
-    ok "Not a Pi 5 — bootloader check skipped"
-
-fi
+configure_bootloader
 
 # -------------------------------------------------------------------------
 # Step 9: Configure low-battery shutdown via systemd-logind
