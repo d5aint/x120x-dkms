@@ -52,8 +52,8 @@ Two charge modes are available — choose one before installing:
   for a **frequently cycled build** (e.g. a
   portable unit charged and discharged most days), where keeping cells
   below full charge greatly extends cycle life.  On an always-on UPS it
-  mostly just costs backup runtime — see *Choosing a profile* for the
-  full reasoning.
+  mostly just costs backup runtime — see *Choosing a profile: runtime
+  vs. longevity* for the full reasoning.
 
 Replace `<your_capacity>` with your total pack capacity in mAh —
 multiply per-cell capacity by number of cells.  The mAh rating is
@@ -115,8 +115,8 @@ and advanced configuration in depth.
 
 ## Supported hardware
 
-All models share an identical software interface and are fully supported
-by this driver:
+All X120x models share an identical software interface and are fully
+supported by this driver:
 
 | Model  | Pi compatibility         | Connection              | Battery            |
 |--------|--------------------------|-------------------------|--------------------|
@@ -165,9 +165,10 @@ Available board variants: `x120x` (default), `x728v2`, `x728v1`, `x708`, `x729`.
   X728 V2.5). On all other boards a `Long Life` write is rejected and
   `charge_type` always reads `Fast`.
 - The power-off GPIO pulse is registered via a sys-off handler
-  (`SYS_OFF_MODE_POWER_OFF_PREPARE`) and fires after `systemctl poweroff`. The DT overlay must provide the `power-off-gpios`
-  property for this to work — without it a warning is logged and the UPS
-  will not cut power automatically after shutdown.
+  (`SYS_OFF_MODE_POWER_OFF_PREPARE`) and fires after `systemctl
+  poweroff`.  The DT overlay must provide the `power-off-gpios` property
+  for this to work — without it a warning is logged and the UPS will not
+  cut power automatically after shutdown.
 - The DS1307 RTC on X728/X729 is handled by the existing mainline
   `rtc-ds1307` kernel driver, not this driver. Add `dtoverlay=i2c-rtc,ds1307`
   to `config.txt` to enable it.
@@ -327,12 +328,12 @@ The driver supports two charge modes, selectable via `charge_type`:
   dramatically reduced.  The trade-off is about 20% less runtime during
   an outage (~1.3 h on a full X1206); the benefit is that the cells
   retain meaningfully more of their original capacity after several
-  years.  Best for a **frequently
-  cycled build** (e.g. a portable unit), where cycle aging dominates and
-  trimming the top of the charge greatly extends cell life — or, on a
-  UPS, only when the pack is oversized relative to your worst outage or
-  deferring the eventual replacement matters more than runtime.  See
-  **Choosing a profile** below — on a standby UPS, slower aging does
+  years.  Best for a **frequently cycled build** (e.g. a portable
+  unit), where cycle aging dominates and trimming the top of the charge
+  greatly extends cell life — or, on a UPS, only when the pack is
+  oversized relative to your worst outage or deferring the eventual
+  replacement matters more than runtime.  See *Choosing a profile:
+  runtime vs. longevity* below — on a standby UPS, slower aging does
   *not* automatically mean more runtime years later, because `Long Life`
   also starts every outage at a lower charge.
 
@@ -430,16 +431,16 @@ capacity the cells have retained to that point.
 >   board/gauge quiescent draw on the battery rail), so a full pack
 >   slowly loses charge and tops back up — a shallow sawtooth: `Fast`
 >   between 100% and 95% (recharging roughly weekly), `Long Life` between
->   80% and 75%.  The table uses the top of each band; since the pack
->   spends its time evenly across the band, a typical outage starts
->   ~mid-band (~2.5 points / ~0.15 h lower).  (`Fast` relaxes to ~4.18 V
->   at rest.)
+>   80% and 75% (at rest, a Fast-held pack relaxes to ~4.18 V).  The
+>   table uses the top of each band; since the pack spends its time
+>   evenly across the band, a typical outage starts ~mid-band (~2.5
+>   points / ~0.15 h lower).
 > - **Calendar aging:** assumed **3%/yr capacity loss at full charge
 >   (~100% SoC)** and **2%/yr at 80% SoC**, at a moderate ~25 °C.  These
 >   are illustrative midpoints from general Li-ion NMC literature,
->   **not** measured for
->   any specific cell.  Real rates vary widely with cell quality and,
->   especially, **temperature** — calendar aging roughly doubles per
+>   **not** measured for any specific cell.  Real rates vary widely with
+>   cell quality and, especially, **temperature** — calendar aging
+>   roughly doubles per
 >   +10 °C, so a pack running warm (e.g. in the Pi's exhaust) ages far
 >   faster than this and *both* columns shrink.
 > - **Cycle aging is small but not quite zero** — that standby sawtooth
@@ -574,6 +575,9 @@ load, from a full start:
 | 10% — driver flags `capacity_level=Low` | ~5.9 h |
 | **2% — clean OS shutdown fires** | **~6.2 h** |
 | 0% — fully empty (no shutdown was in place) | ~7.0 h |
+
+(*Incident 1*'s total 10.3 h on battery includes ~3.3 h spent below
+fuel-gauge 0%, after the 7.0 h in the table above ends.)
 
 Note the curve: the first half drains slowly on the flat part of the
 discharge (~4 h to 50%), then collapses — the bottom half is gone in
@@ -1279,9 +1283,8 @@ Scripts that poll AC state and call `shutdown` when power is lost
 can be removed entirely.  The driver reports `capacity_level=Critical`
 below 5% SoC, and UPower's `PercentageAction` (set to 2% SoC by the
 installer) then causes systemd-logind to initiate a clean shutdown
-automatically — no
-script required.  This works identically on headless and desktop
-installations.
+automatically — no script required.  This works identically on headless
+and desktop installations.
 
 ## Companion daemon
 
@@ -1711,7 +1714,7 @@ the first step.
 
 ## Changelog
 
-### v0.4.5 — enforce the 2% low-battery shutdown threshold
+### v0.4.5 — Enforce the 2% low-battery shutdown threshold
 
 **Installer**
 - `install.sh` now sets `UsePercentageForPolicy=true` and
@@ -1725,7 +1728,7 @@ the first step.
 - Kernel module is unchanged from v0.4.4; version bumped to keep the
   package, DKMS, and module versions in lockstep.
 
-### v0.4.4 — charge hysteresis band restored
+### v0.4.4 — Charge hysteresis band restored
 
 **Kernel driver**
 - Charging now resumes at the lower threshold again, restoring a proper
@@ -2029,7 +2032,8 @@ this driver for any purpose.
 **USE AT YOUR OWN RISK.**
 
 This project is an independent personal contribution, developed in my
-own time on my own hardware.  It is not affiliated with or endorsed by SupTronics, Geekworm, or my employer.
+own time on my own hardware.  It is not affiliated with or endorsed by
+SupTronics, Geekworm, or my employer.
 
 ## License
 
