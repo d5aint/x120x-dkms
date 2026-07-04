@@ -18,7 +18,7 @@
 #     older versions of install.sh)
 #
 # What this script does NOT touch:
-#   - The raspberrypi-kernel-headers and dkms packages (installed as
+#   - The linux-headers-$(uname -r) and dkms packages (installed as
 #     system dependencies; removing them may affect other software)
 #   - Bootloader EEPROM settings (POWER_OFF_ON_HALT, PSU_MAX_CURRENT)
 #   - Any config.txt lines not added by the installer
@@ -322,7 +322,7 @@ echo
 echo -e "    sudo reboot"
 echo
 echo -e "  ${YLW}Note:${RST} bootloader EEPROM settings (POWER_OFF_ON_HALT, PSU_MAX_CURRENT)"
-echo -e "  were not changed. To revert them, run:"
+echo -e "  were left in place (the installer sets them on a Pi 5). To revert them, run:"
 echo
 echo -e "    sudo rpi-eeprom-config -e"
 echo
