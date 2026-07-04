@@ -842,31 +842,6 @@ This driver follows the observed hardware behaviour.
 The fuel gauge default I²C address is `0x36`.  The driver probes
 `0x36, 0x55, 0x32, 0x62` in order to cover all known board revisions.
 
-## Required bootloader settings (Raspberry Pi 5)
-
-Two bootloader settings are recommended for reliable UPS operation:
-
-```bash
-sudo rpi-eeprom-config -e
-```
-
-Add:
-
-```
-POWER_OFF_ON_HALT=1
-PSU_MAX_CURRENT=5000
-```
-
-- `POWER_OFF_ON_HALT=1` — ensures the Pi fully cuts power to the SoC
-  when Linux halts, so the UPS can restart it cleanly when mains power
-  returns.  Without this the Pi remains partially powered after shutdown
-  and cannot be restarted by the UPS.
-- `PSU_MAX_CURRENT=5000` — tells the Pi that its power supply can
-  deliver 5 A, suppressing spurious low-power warnings when drawing
-  high current through the UPS board.
-
-Save and reboot.
-
 ## Installation
 
 ### Quick install (recommended)
