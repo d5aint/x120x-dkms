@@ -1929,6 +1929,9 @@ the first step.
   users).  New `overlay` job compiles `x120x-overlay.dts` with `dtc`.
 - New `static` job runs `make W=1` (kernel extra-warnings and kernel-doc,
   any warning fails) and `sparse` (`make C=1`) over the driver.
+- Shell job now also verifies every README in-page anchor link resolves
+  to a heading (GitHub slug rules), next to the repository-layout tree
+  check.
 
 **Project**
 - Issue templates: a bug report mirroring the Troubleshooting checklist,
