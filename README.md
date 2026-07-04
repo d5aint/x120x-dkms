@@ -15,29 +15,7 @@ loops.
 If you just want to get up and running quickly, here is everything you
 need in one place.
 
-### 1. Configure the bootloader (Raspberry Pi 5 only)
-
-Pi 4 and Pi 3 users can skip this step.
-
-For reliable UPS operation — clean shutdown and automatic restart when
-mains power returns — two bootloader settings are needed:
-
-```bash
-sudo rpi-eeprom-config -e
-```
-
-Add these lines, save, and reboot:
-
-```
-POWER_OFF_ON_HALT=1
-PSU_MAX_CURRENT=5000
-```
-
-`POWER_OFF_ON_HALT=1` ensures the Pi fully powers off when Linux halts
-so the UPS can restart it automatically when mains returns.
-`PSU_MAX_CURRENT=5000` suppresses spurious low-power warnings.
-
-### 2. Install the driver
+### 1. Install the driver
 
 Two charge modes are available — choose one before installing:
 
@@ -79,6 +57,11 @@ sudo bash install.sh --battery-mah <your_capacity> --charge-mode longlife
 sudo reboot
 ```
 
+On a Raspberry Pi 5 the installer also stages two required bootloader
+settings — `POWER_OFF_ON_HALT=1` and `PSU_MAX_CURRENT=5000` — which take
+effect at that same reboot; see *Required bootloader settings (Raspberry
+Pi 5)* below for what they do and the `--skip-eeprom` opt-out.
+
 The charge mode is persisted across reboots automatically.  It can
 also be changed at any time without reinstalling:
 
@@ -87,7 +70,7 @@ echo "Long Life" | sudo tee /sys/class/power_supply/x120x-charger/charge_type
 echo "Fast"      | sudo tee /sys/class/power_supply/x120x-charger/charge_type
 ```
 
-### 3. Monitor battery state
+### 2. Monitor battery state
 
 After rebooting, the battery appears as a standard Linux power supply.
 The easiest way to see full details is `gnome-power-statistics`:
@@ -842,6 +825,48 @@ This driver follows the observed hardware behaviour.
 The fuel gauge default I²C address is `0x36`.  The driver probes
 `0x36, 0x55, 0x32, 0x62` in order to cover all known board revisions.
 
+## Required bootloader settings (Raspberry Pi 5)
+
+On a Raspberry Pi 5, two bootloader EEPROM settings are required for the
+driver's core behaviour.  `install.sh` configures them automatically —
+it is idempotent and only stages a change when a value is missing or
+wrong — so most users never touch this.  Pass `--skip-eeprom` to opt out
+and manage them yourself.
+
+- `POWER_OFF_ON_HALT=1` — the Pi fully depowers the SoC when Linux
+  halts, so the UPS can cut and restore power to restart it cleanly when
+  mains returns.  Without it the Pi stays partially powered after
+  shutdown and the UPS cannot restart it.  Caveat: this also disables
+  RTC-alarm and power-button wake from a halted state — intended for a
+  UPS install, where the UPS performs the power cycling.
+- `PSU_MAX_CURRENT=5000` — tells the Pi its supply can deliver 5 A,
+  removing firmware current-limiting and suppressing spurious low-power
+  warnings when drawing high current through the UPS board.  Caveat:
+  this assumes a genuinely 5 A-capable supply.
+
+`rpi-eeprom-config --apply` only *stages* the update on the boot
+partition; the bootloader flashes it early during the next boot, so it
+lands with the same reboot as the driver install — no separate reboot is
+needed.
+
+To configure them manually (or in a scripted setup), the non-interactive
+one-liner keeps every other setting and sets just these two:
+
+```bash
+sudo rpi-eeprom-config --apply <(
+    rpi-eeprom-config | grep -vE '^(POWER_OFF_ON_HALT|PSU_MAX_CURRENT)='
+    printf 'POWER_OFF_ON_HALT=1\nPSU_MAX_CURRENT=5000\n'
+)
+```
+
+Or edit interactively (prefix `EDITOR=nano` or `EDITOR=vim` if you like):
+
+```bash
+sudo rpi-eeprom-config -e
+```
+
+Either way, reboot afterwards for the bootloader to flash the update.
+
 ## Installation
 
 ### Quick install (recommended)
@@ -854,8 +879,8 @@ cd x120x-dkms
 sudo bash install.sh
 ```
 
-The script handles everything and tells you what it is doing at each
-step.  Reboot when it finishes.
+The script handles everything — including the Pi 5 bootloader settings —
+and tells you what it is doing at each step.  Reboot when it finishes.
 
 #### Install script options
 
@@ -866,6 +891,7 @@ Optional arguments configure the driver at install time:
 | `--battery-mah N` | `1000` | Total pack capacity in mAh. Multiply per-cell capacity by number of cells. |
 | `--charge-mode MODE` | `fast` | Initial charge mode: `fast` or `longlife`. Persisted across reboots. See Getting started for guidance on which to choose. |
 | `--board VARIANT` | `x120x` | Board variant. See Experimental board support for details. Variants other than `x120x` are untested. |
+| `--skip-eeprom` | _(off)_ | Do not modify Pi 5 bootloader EEPROM settings (`POWER_OFF_ON_HALT`, `PSU_MAX_CURRENT`); configure them manually — see Required bootloader settings. |
 
 Examples:
 
@@ -920,9 +946,9 @@ The following are intentionally left unchanged:
 - The `dkms` and `linux-headers-$(uname -r)` packages — removing them
   could break other DKMS modules on the system.
 - Bootloader EEPROM settings (`POWER_OFF_ON_HALT`, `PSU_MAX_CURRENT`) —
-  these are system-level settings that may have been configured
-  independently.  To revert them, run `sudo rpi-eeprom-config -e` and
-  remove the relevant lines manually.
+  set by the installer on a Pi 5, but system-level and possibly relied
+  upon by other software.  To revert them, run `sudo rpi-eeprom-config
+  -e` and remove the relevant lines manually.
 - Lines outside the installer's marker block in `logind.conf` and
   `UPower.conf`.  In particular, previously commented-out keys (such
   as a deliberate `#HandleLowBattery=ignore`) are **never**
@@ -1030,29 +1056,18 @@ Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X` in nano).
 
 #### Step 7 — Configure the bootloader (Raspberry Pi 5 only)
 
-Two bootloader settings are recommended for reliable UPS operation.
-Both are set in the same file:
+On a Pi 5, set the two required bootloader EEPROM settings — see
+*Required bootloader settings (Raspberry Pi 5)* above for what they do
+and why.  The non-interactive one-liner keeps every other setting:
 
 ```bash
-sudo rpi-eeprom-config -e
+sudo rpi-eeprom-config --apply <(
+    rpi-eeprom-config | grep -vE '^(POWER_OFF_ON_HALT|PSU_MAX_CURRENT)='
+    printf 'POWER_OFF_ON_HALT=1\nPSU_MAX_CURRENT=5000\n'
+)
 ```
 
-Add these lines:
-
-```
-POWER_OFF_ON_HALT=1
-PSU_MAX_CURRENT=5000
-```
-
-- `POWER_OFF_ON_HALT=1` — ensures the Pi fully cuts power to the SoC
-  when Linux halts, so the UPS can restart it cleanly when mains power
-  returns.  Without this the Pi remains partially powered after shutdown
-  and cannot be restarted by the UPS.
-- `PSU_MAX_CURRENT=5000` — tells the Pi that its power supply can
-  deliver 5 A, suppressing spurious low-power warnings when drawing
-  high current through the UPS board.
-
-Save and exit.
+(Pi 4 and Pi 3 users skip this step.)
 
 #### Step 8 — Configure low-battery shutdown
 
