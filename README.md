@@ -506,10 +506,7 @@ capacity the cells have retained to that point.
 >   Runtime scales linearly with pack capacity; a smaller pack shifts
 >   every row down proportionally but does **not** change the ranking.
 > - **Shutdown floor:** 2% SoC — where the driver's UPower
->   `PercentageAction` fires the clean OS shutdown.  This is the
->   driver-only behaviour that almost all installs have; if you also run
->   the optional companion daemon, it shuts down earlier at its own ~10%
->   floor, for correspondingly less runtime.
+>   `PercentageAction` fires the clean OS shutdown.
 > - **Starting charge:** the X1206 has a small standby drain (~20 mW of
 >   board/gauge quiescent draw on the battery rail), so a full pack
 >   slowly loses charge and tops back up — a shallow sawtooth: `Fast`
