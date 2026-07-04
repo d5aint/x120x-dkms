@@ -1160,13 +1160,32 @@ static int x120x_charger_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD:
 		if (val->intval < 0 || val->intval > 99)
 			return -EINVAL;
+		/*
+		 * The poll loop reads both thresholds under chip->lock, so
+		 * hold it here to make this read-modify-write atomic against
+		 * it.  Reject a start point that meets or crosses the current
+		 * stop point, which would invert the hysteresis band.  The
+		 * poll loop keeps a defensive clamp as belt-and-braces.
+		 */
+		mutex_lock(&chip->lock);
+		if (val->intval >= conservation_end) {
+			mutex_unlock(&chip->lock);
+			return -EINVAL;
+		}
 		conservation_start = val->intval;
+		mutex_unlock(&chip->lock);
 		return 0;
 
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
 		if (val->intval < 1 || val->intval > 100)
 			return -EINVAL;
+		mutex_lock(&chip->lock);
+		if (val->intval <= conservation_start) {
+			mutex_unlock(&chip->lock);
+			return -EINVAL;
+		}
 		conservation_end = val->intval;
+		mutex_unlock(&chip->lock);
 		return 0;
 
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
@@ -1525,6 +1544,18 @@ static int x120x_probe(struct i2c_client *client)
 	chip->present = true;
 	mutex_init(&chip->lock);
 	i2c_set_clientdata(client, chip);
+
+	/*
+	 * Clamp battery_mah to a sane range.  energy_full_uwh is
+	 * battery_mah * 3700 and is later cast to int for the ENERGY_FULL
+	 * property; capping at 500000 mAh keeps that product (~1.85e9)
+	 * below INT_MAX, so a bogus module-param value cannot overflow it.
+	 */
+	if (battery_mah < 1 || battery_mah > 500000) {
+		dev_warn(dev, "battery_mah=%d out of range [1, 500000]; clamping\n",
+			 battery_mah);
+		battery_mah = clamp(battery_mah, 1, 500000);
+	}
 
 	/* -- regmap -------------------------------------------------------- */
 	chip->regmap = devm_regmap_init_i2c(client, &x120x_regmap_config);
