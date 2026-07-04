@@ -1891,9 +1891,26 @@ the first step.
 - GitHub Actions runs `bash -n`, `shellcheck -S warning`, and every
   suite on each push and pull request.
 
+**Security** (repo-audit hardening)
+- Manual bootloader-config steps use `mktemp` instead of a fixed
+  `/tmp/bootconf.txt`, closing a local TOCTOU on the root-consumed file.
+- Installer Step 7 anchors its config.txt "already present" checks, so a
+  commented-out or prefixed `dtoverlay=x120x` / `gpio=6=pu` line no
+  longer suppresses the append.
+- Installer runs `chmod -R go-w` on the copied DKMS source tree, so root
+  builds from sources a non-root user cannot alter; the uninstaller
+  narrows its orphan-cleanup glob to `x120x-[0-9]*`.
+- Driver: `set_property` takes `chip->lock` around the charge-threshold
+  writes and rejects a band-inverting value with `-EINVAL`; probe clamps
+  `battery_mah` to `[1, 500000]` to avoid an integer overflow in the
+  ENERGY_FULL property.
+- CI drops to `permissions: contents: read` and pins `actions/checkout`
+  to a commit SHA.
+
 **Note**
-- The kernel module is unchanged from v0.4.5; the version is bumped to
-  keep the package, DKMS, and module versions in lockstep.
+- The version was bumped to v0.4.6 for the installer and documentation
+  work; the kernel module also carries the threshold-locking and
+  `battery_mah`-clamp fixes listed under Security.
 
 ### v0.4.5 — Enforce the 2% low-battery shutdown threshold
 

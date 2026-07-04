@@ -325,6 +325,8 @@ PKG_VERSION="0.4.6"
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # External command and device-tree model path — overridable for testing.
+# Safe: install.sh runs as root, and setting root's environment already
+# requires root, so these overrides grant no privilege a caller lacks.
 RPI_EEPROM_CONFIG="${RPI_EEPROM_CONFIG:-rpi-eeprom-config}"
 DT_MODEL_PATH="${DT_MODEL_PATH:-/proc/device-tree/model}"
 
@@ -615,7 +617,9 @@ cat > "${PERSIST_SCRIPT}" << 'PERSIST_EOF'
 # Writes conservation_mode_default to /etc/modprobe.d/x120x.conf so
 # the charge mode (Fast or Long Life) survives reboots.
 # CONF and the charge_type source default to the real paths but are
-# overridable (X120X_CONF, X120X_CHARGE_TYPE_PATH) for testing.
+# overridable (X120X_CONF, X120X_CHARGE_TYPE_PATH) for testing.  Safe:
+# udev runs this as root and setting root's environment already requires
+# root, so the overrides grant no privilege a caller lacks.
 CONF="${X120X_CONF:-/etc/modprobe.d/x120x.conf}"
 CHARGE_TYPE_PATH="${X120X_CHARGE_TYPE_PATH:-/sys/class/power_supply/x120x-charger/charge_type}"
 CHARGE_TYPE=$(cat "$CHARGE_TYPE_PATH" 2>/dev/null)
