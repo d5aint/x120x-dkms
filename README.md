@@ -950,10 +950,10 @@ To configure them manually (or in a scripted setup), the non-interactive
 one-liner keeps every other setting and sets just these two:
 
 ```bash
-sudo rpi-eeprom-config --apply <(
-    rpi-eeprom-config | grep -vE '^(POWER_OFF_ON_HALT|PSU_MAX_CURRENT)='
-    printf 'POWER_OFF_ON_HALT=1\nPSU_MAX_CURRENT=5000\n'
-)
+sudo rpi-eeprom-config > /tmp/bootconf.txt
+sed -i -e '/^POWER_OFF_ON_HALT=/d' -e '/^PSU_MAX_CURRENT=/d' /tmp/bootconf.txt
+printf 'POWER_OFF_ON_HALT=1\nPSU_MAX_CURRENT=5000\n' >> /tmp/bootconf.txt
+sudo rpi-eeprom-config --apply /tmp/bootconf.txt
 ```
 
 Or edit interactively (prefix `EDITOR=nano` or `EDITOR=vim` if you like):
@@ -1158,10 +1158,10 @@ On a Pi 5, set the two required bootloader EEPROM settings — see
 and why.  The non-interactive one-liner keeps every other setting:
 
 ```bash
-sudo rpi-eeprom-config --apply <(
-    rpi-eeprom-config | grep -vE '^(POWER_OFF_ON_HALT|PSU_MAX_CURRENT)='
-    printf 'POWER_OFF_ON_HALT=1\nPSU_MAX_CURRENT=5000\n'
-)
+sudo rpi-eeprom-config > /tmp/bootconf.txt
+sed -i -e '/^POWER_OFF_ON_HALT=/d' -e '/^PSU_MAX_CURRENT=/d' /tmp/bootconf.txt
+printf 'POWER_OFF_ON_HALT=1\nPSU_MAX_CURRENT=5000\n' >> /tmp/bootconf.txt
+sudo rpi-eeprom-config --apply /tmp/bootconf.txt
 ```
 
 (Pi 4 and Pi 3 users skip this step.)

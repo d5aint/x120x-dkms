@@ -81,6 +81,7 @@ run_cb() {
         ok()   { echo "ok:$*"   >> "${LOGCAP}"; }
         warn() { echo "warn:$*" >> "${LOGCAP}"; }
         die()  { echo "die:$*"  >> "${LOGCAP}"; exit 1; }
+        X120X_CLEANUP=()   # install.sh's main flow provides this; stub it here
         eval "${CB_SRC}"
         configure_bootloader
     )
@@ -166,11 +167,21 @@ assert "9 missing binary: returns 0" '[ "'"$rc"'" -eq 0 ]'
 assert "9 missing binary: no --apply" '[ ! -s "${MOCK_APPLY_LOG}" ]'
 assert "9 missing binary: warns"     'grep -q "warn:rpi-eeprom-config not found" "${LOGCAP}"'
 
-# 10 — Arg parsing: --help documents --skip-eeprom and exits 0.
+# 10 — Pi 5, dump succeeds but is empty: guard skips, no --apply.  A failed
+#      unprivileged read must never be staged as a two-line config that
+#      wipes the rest of the EEPROM config.
+reset
+: > "${MOCK_CURRENT}"
+run_cb; rc=$?
+assert "10 empty dump: returns 0"    '[ "'"$rc"'" -eq 0 ]'
+assert "10 empty dump: no --apply"   '[ ! -s "${MOCK_APPLY_LOG}" ]'
+assert "10 empty dump: warns"        'grep -q "read back empty" "${LOGCAP}"'
+
+# 11 — Arg parsing: --help documents --skip-eeprom and exits 0.
 echo "argument-parsing tests"
 help_out=$(bash "${INSTALL_SH}" --help 2>&1); help_rc=$?
-assert "10 --help: exits 0"          '[ "'"$help_rc"'" -eq 0 ]'
-assert "10 --help: mentions --skip-eeprom" 'printf "%s" "'"$help_out"'" | grep -q -- "--skip-eeprom"'
+assert "11 --help: exits 0"          '[ "'"$help_rc"'" -eq 0 ]'
+assert "11 --help: mentions --skip-eeprom" 'printf "%s" "'"$help_out"'" | grep -q -- "--skip-eeprom"'
 
 echo
 echo "Results: ${PASS} passed, ${FAIL} failed"

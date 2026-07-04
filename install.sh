@@ -44,6 +44,20 @@ require_root() {
 }
 
 # -------------------------------------------------------------------------
+# Temp-file cleanup
+#
+# Paths pushed here are removed on exit, so a kill mid-run cannot leak
+# them.  Individual steps also rm on their normal paths; this is the
+# backstop.
+# -------------------------------------------------------------------------
+
+X120X_CLEANUP=()
+_x120x_cleanup() {
+    [ "${#X120X_CLEANUP[@]}" -eq 0 ] || rm -rf -- "${X120X_CLEANUP[@]}" 2>/dev/null || true
+}
+trap _x120x_cleanup EXIT
+
+# -------------------------------------------------------------------------
 # INI block helper
 #
 # Append a marker-wrapped block of lines under a named section in an INI
@@ -204,9 +218,19 @@ configure_bootloader() {
     new=$(mktemp -t x120x-eeprom-new.XXXXXX) \
         || { warn "mktemp failed — skipping bootloader EEPROM setup."; rm -f -- "${cur}"; return 0; }
     chmod 600 -- "${cur}" "${new}"
+    X120X_CLEANUP+=("${cur}" "${new}")
 
     if ! "${RPI_EEPROM_CONFIG}" > "${cur}" 2>/dev/null; then
         warn "Could not read current bootloader config — skipping EEPROM setup."
+        rm -f -- "${cur}" "${new}"
+        return 0
+    fi
+
+    # A successful-but-empty read (e.g. the unprivileged VideoCore mailbox
+    # path returned nothing) must never be turned into a two-line config
+    # that wipes BOOT_ORDER and everything else.
+    if [ ! -s "${cur}" ]; then
+        warn "Current bootloader config read back empty — skipping EEPROM setup."
         rm -f -- "${cur}" "${new}"
         return 0
     fi
@@ -408,8 +432,7 @@ fi
 DTBO_TMPDIR=$(mktemp -d -t x120x-dtbo.XXXXXX) \
     || die "Failed to create temporary directory for overlay compile"
 chmod 700 "${DTBO_TMPDIR}"
-# shellcheck disable=SC2064
-trap "rm -rf -- '${DTBO_TMPDIR}'" EXIT
+X120X_CLEANUP+=("${DTBO_TMPDIR}")
 
 dtc -@ -I dts -O dtb \
     -o "${DTBO_TMPDIR}/x120x.dtbo" \
