@@ -63,7 +63,7 @@ the mAh printed on your actual cells and multiply by the cell count if
 yours differ.  For the external-pack boards (X1203, X1209, and the
 experimental X708) replace `<your_capacity>` with your pack's total
 capacity in mAh.  The X728/X708/X729 rows are **experimental and
-untested** — see *Experimental board support* before relying on them.
+untested** — see [Experimental board support](#experimental-board-support) before relying on them.
 `Fast` is the default, so it is omitted above; to start in Long Life
 from the outset, add `--charge-mode longlife` (see *Battery conservation
 mode*).
@@ -109,7 +109,7 @@ That is all that is needed for a fully working installation.  The
 rest of this document covers the driver interface, hardware details,
 and advanced configuration in depth.
 
-No icon after rebooting?  See *Troubleshooting* below.
+No icon after rebooting?  See [Troubleshooting](#troubleshooting) below.
 
 ---
 
@@ -171,9 +171,9 @@ detection* and the deep-discharge recovery notes.
 ### ac_online is 0 with the charger plugged in
 
 This is almost always the GPIO6 AC-detect line floating at boot — see
-*GPIO6 pull-up*.  If the charger LED is lit and `ac_online` stays `0`
+[GPIO6 pull-up](#gpio6-pull-up).  If the charger LED is lit and `ac_online` stays `0`
 across reboots (with `gpio=6=pu` in `config.txt`), suspect a failed
-board — see *Incident 2* for the field-failure signature.
+board — see [Incident 2](#incident-2--grid-return-undetected-recovery-livelock-2026-03-29) for the field-failure signature.
 
 ### Build failed / DKMS errors
 
@@ -410,7 +410,7 @@ between outages — so calendar aging at full charge is the dominant wear
 mechanism for always-on systems.  Conservation mode slows it by holding
 the battery at a lower resting state of charge.  Note, though, that on a
 standby UPS slower aging does **not** translate into more backup runtime
-(see *Choosing a profile: runtime vs. longevity*) — which is why `Fast`
+(see [Choosing a profile: runtime vs. longevity](#choosing-a-profile-runtime-vs-longevity)) — which is why `Fast`
 is the default, and conservation mode is aimed mainly at frequently
 cycled builds.
 
@@ -593,7 +593,7 @@ Under the moderate-NMC assumptions (base case: 3%/yr vs 2%/yr):
 | 25 | 2.9 h | 3.0 h | `Long Life` (+0.1 h) |
 
 (Runtime to the driver's 2% shutdown.  The year-0 Fast figure of 6.2 h
-is the *measured* value from the *Incident 1* full discharge, not just a
+is the *measured* value from the [Incident 1](#incident-1--deep-discharge-and-cell-destruction-2026-03-05) full discharge, not just a
 model output; the later years scale it by assumed capacity retention.)
 
 The counter-intuitive result: **`Fast` delivers more usable runtime
@@ -666,14 +666,14 @@ so both avoid the single worst calendar-aging stressor (sitting pinned
 at 4.2 V indefinitely).  The only difference between them is the resting
 state of charge.  If you are unsure, you almost certainly have a standby
 UPS: leave it on the default `Fast`, keep the cells cool, never let them
-deep-discharge (see *Incident 1*), and a replacement — if ever needed —
+deep-discharge (see [Incident 1](#incident-1--deep-discharge-and-cell-destruction-2026-03-05)), and a replacement — if ever needed —
 is cheap and infrequent.
 
 #### Measured runtime, and what 80% actually costs a UPS
 
 Back to the standby-UPS numbers: the model's year-0 row is not just
 theory — it matches a real full-depth discharge logged during the
-*Incident 1* outage (before the undervoltage shutdown existed, so the
+[Incident 1](#incident-1--deep-discharge-and-cell-destruction-2026-03-05) outage (before the undervoltage shutdown existed, so the
 pack drained all the way down).  On an X1206 (4× 21700) at ~5 W idle
 load, from a full start:
 
@@ -684,7 +684,7 @@ load, from a full start:
 | **2% — clean OS shutdown fires** | **~6.2 h** |
 | 0% — fully empty (no shutdown was in place) | ~7.0 h |
 
-(*Incident 1*'s total 10.3 h on battery includes ~3.3 h spent below
+([Incident 1](#incident-1--deep-discharge-and-cell-destruction-2026-03-05)'s total 10.3 h on battery includes ~3.3 h spent below
 fuel-gauge 0%, after the 7.0 h in the table above ends.)
 
 Note the curve: the first half drains slowly on the flat part of the
@@ -1184,7 +1184,7 @@ Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X` in nano).
 #### Step 7 — Configure the bootloader (Raspberry Pi 5 only)
 
 On a Pi 5, set the two required bootloader EEPROM settings — see
-*Required bootloader settings (Raspberry Pi 5)* above for what they do
+[Required bootloader settings (Raspberry Pi 5)](#required-bootloader-settings-raspberry-pi-5) above for what they do
 and why.  The non-interactive one-liner keeps every other setting:
 
 ```bash
@@ -1909,7 +1909,9 @@ the first step.
 **Documentation**
 - Getting started restructured for first-time users (newbie-first
   requirements, commands in execution order); charge-mode selection
-  moved to *Battery conservation mode*.
+  moved to [Battery conservation mode](#battery-conservation-mode).
+- Section cross-references converted from italics to in-page GitHub
+  anchor links.
 - Note that `charge_control_*_threshold` reports the Long Life band even
   in `Fast` mode (Fast uses a fixed 100% / 95% band the standard sysfs
   interface cannot express), so `75` / `80` there in Fast is expected.
@@ -2074,7 +2076,7 @@ the first step.
   feedback loop and produced approximately 820 `change` uevents per
   second on `/sys/class/power_supply/x120x-charger`.  The flood
   saturated `systemd-udevd` and two worker processes at ~90% CPU each.
-  See *Real-world incidents — Incident 3* for the full diagnosis.
+  See [Real-world incidents — Incident 3](#incident-3--uevent-storm-from-uninitialised-stack-variable-2026-05-20) for the full diagnosis.
 
 ### v0.4.2 — Security audit follow-ups
 
@@ -2251,7 +2253,7 @@ the first step.
   removed; the charger is enabled whenever SoC is below the stop
   threshold, defaulting to on in all uncertain or low-SoC states
 
-**GPIO6 pull-up**
+*[GPIO6 pull-up](#gpio6-pull-up)*
 - `gpio=6=pu` added to `config.txt` by installer — prevents GPIO6
   floating low at boot before the X1206 hardware asserts the AC-present
   signal, eliminating false `ac_online=0` readings after a power outage
@@ -2275,7 +2277,7 @@ the first step.
 
 ### v0.2.0 — Experimental board support, additional properties, dead battery detection
 
-**Experimental board support**
+*[Experimental board support](#experimental-board-support)*
 - Experimental support for Geekworm X728 V2.x/V1.x, X708, X729 via
   `--board` parameter in `install.sh`
 - `pm_power_off` hook pulses the power-off GPIO on these boards after
