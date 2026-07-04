@@ -43,7 +43,7 @@ Two charge modes are available — choose one before installing:
 
 - **Fast** (default) — charges to 100%, then disables the charger and
   leaves the battery floating.  Charging resumes when SoC drops to 95%
-  as the pack slowly self-discharges.  Best for a
+  as the board's standby drain slowly pulls it down.  Best for a
   **standby UPS** (on mains, occasional outages) — it maximises backup
   runtime, which is what matters when an outage is unannounced.  This is
   the right choice for almost all installs.
@@ -314,8 +314,9 @@ The driver supports two charge modes, selectable via `charge_type`:
 
 - **`Fast`** (default) — charges to 100%, disables the charger, and
   re-enables it once SoC falls to 95%.  This 100%/95% hysteresis band
-  lets the pack self-discharge a little before topping up, instead of
-  micro-cycling against the full-charge cutoff.  Cells rest at or near
+  lets the pack drain down a little (the X1206 has a small standby draw
+  on the battery rail) before topping up, instead of micro-cycling
+  against the full-charge cutoff.  Cells rest at or near
   full voltage, so calendar aging continues at its normal rate.  Best
   when the priority is maximum backup capacity at the moment an outage
   begins.
@@ -425,11 +426,14 @@ capacity the cells have retained to that point.
 >   driver-only behaviour that almost all installs have; if you also run
 >   the optional companion daemon, it shuts down earlier at its own ~10%
 >   floor, for correspondingly less runtime.
-> - **Starting charge:** `Fast` floats between 100% (charge stop) and 95%
->   (resume); `Long Life` between 80% and 75%.  We model the top of each
->   band as the outage start — an outage can in fact begin anywhere in
->   the band, up to ~0.3 h lower at the bottom.  (`Fast` relaxes to
->   ~4.18 V at rest.)
+> - **Starting charge:** the X1206 has a small standby drain (~20 mW of
+>   board/gauge quiescent draw on the battery rail), so a full pack
+>   slowly loses charge and tops back up — a shallow sawtooth: `Fast`
+>   between 100% and 95% (recharging roughly weekly), `Long Life` between
+>   80% and 75%.  The table uses the top of each band; since the pack
+>   spends its time evenly across the band, a typical outage starts
+>   ~mid-band (~2.5 points / ~0.15 h lower).  (`Fast` relaxes to ~4.18 V
+>   at rest.)
 > - **Calendar aging:** assumed **3%/yr capacity loss at full charge
 >   (~100% SoC)** and **2%/yr at 80% SoC**, at a moderate ~25 °C.  These
 >   are illustrative midpoints from general Li-ion NMC literature,
@@ -438,12 +442,10 @@ capacity the cells have retained to that point.
 >   especially, **temperature** — calendar aging roughly doubles per
 >   +10 °C, so a pack running warm (e.g. in the Pi's exhaust) ages far
 >   faster than this and *both* columns shrink.
-> - **Cycle aging is small but not quite zero** — even in standby the
->   pack slowly self-drains (board/gauge quiescent draw on the battery
->   rail) and tops back up, a shallow top-up sawtooth of a few
->   full-equivalent cycles per year.  That adds marginally more wear
->   under `Fast` (it cycles at 95–100%, the harshest region) than under
->   `Long Life` (75–80%), but it is dwarfed by the calendar-aging
+> - **Cycle aging is small but not quite zero** — that standby sawtooth
+>   is a few full-equivalent cycles per year.  It adds marginally more
+>   wear under `Fast` (cycling at 95–100%, the harshest region) than
+>   under `Long Life` (75–80%), but it is dwarfed by the calendar-aging
 >   difference above, so calendar aging still dominates.  A genuinely
 >   cycled build (e.g. portable) is a different regime — see *Frequently
 >   cycled builds* below.
