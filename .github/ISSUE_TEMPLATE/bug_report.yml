@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a driver problem on a supported X120x board
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill in the diagnostics below.  They mirror the README
+        Troubleshooting checklist and let us reproduce the problem quickly.
+  - type: input
+    id: board
+    attributes:
+      label: UPS board model
+      placeholder: "e.g. X1206"
+    validations:
+      required: true
+  - type: input
+    id: pi-model
+    attributes:
+      label: Raspberry Pi model (`cat /proc/device-tree/model`)
+      placeholder: "e.g. Raspberry Pi 5 Model B Rev 1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: os
+    attributes:
+      label: OS version (`cat /etc/os-release`)
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: dmesg
+    attributes:
+      label: Kernel log (`dmesg | grep x120x`)
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: dkms
+    attributes:
+      label: DKMS status (`dkms status`)
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true

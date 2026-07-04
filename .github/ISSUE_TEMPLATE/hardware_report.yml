@@ -1,0 +1,41 @@
+name: Hardware test report (experimental / armhf)
+description: Results for an experimental board (X728 / X708 / X729) or a 32-bit armhf build
+labels: ["hardware-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Experimental-board support (X728, X708, X729) and 32-bit armhf
+        builds are untested by the maintainer.  Reports here help confirm
+        or fix them — thank you.
+  - type: input
+    id: board
+    attributes:
+      label: Board and revision
+      placeholder: "e.g. X728 v2.5, or X708"
+    validations:
+      required: true
+  - type: input
+    id: pi-arch
+    attributes:
+      label: Raspberry Pi model + architecture (aarch64 / armhf)
+      placeholder: "e.g. Raspberry Pi 4 Model B, armhf"
+    validations:
+      required: true
+  - type: textarea
+    id: worked
+    attributes:
+      label: What worked
+    validations:
+      required: true
+  - type: textarea
+    id: didnt
+    attributes:
+      label: What did not work (if anything)
+  - type: textarea
+    id: dmesg
+    attributes:
+      label: Kernel log (`dmesg | grep x120x`)
+      render: shell
+    validations:
+      required: true

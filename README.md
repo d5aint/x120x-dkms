@@ -1357,7 +1357,13 @@ x120x-dkms/
 │   ├── test-ini-blocks.sh
 │   ├── test-args.sh
 │   └── test-persist.sh
-└── .github/workflows/ci.yml  — CI: bash -n, shellcheck, tests
+└── .github/
+    ├── dependabot.yml        — weekly GitHub Actions updates
+    ├── workflows/ci.yml      — CI: shell, module build, overlay
+    └── ISSUE_TEMPLATE/
+        ├── bug_report.yml
+        ├── hardware_report.yml
+        └── config.yml
 ```
 
 ## Migrating from GPIO scripts
@@ -1891,6 +1897,12 @@ the first step.
 - New `build` job compile-checks the module against generic kernel
   headers with `KCFLAGS=-Werror` (never loaded); new `overlay` job
   compiles `x120x-overlay.dts` with `dtc` (errors fail, warnings allowed).
+
+**Project**
+- Issue templates: a bug report mirroring the Troubleshooting checklist,
+  and a hardware test report for experimental boards (X728 / X708 /
+  X729) and armhf builds; blank issues stay enabled.  Dependabot keeps
+  the pinned GitHub Actions fresh weekly.
 
 ### v0.4.6 — Automatic Pi 5 bootloader configuration, troubleshooting guide
 
