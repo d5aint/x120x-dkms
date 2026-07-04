@@ -22,8 +22,11 @@ If you just want to get up and running quickly, here is everything you
 need in one place.
 
 **Requirements:** Raspberry Pi OS Bookworm or later (64-bit
-recommended).  The driver builds via DKMS against your running kernel,
-so no pre-built binaries are needed.
+recommended), **kernel 6.3 or newer** — the driver uses the modern
+one-arg i2c `.probe`, the sys-off handler framework, and the `void` i2c
+`.remove` (an up-to-date Bookworm, `apt full-upgrade`, is on 6.6/6.12).
+The driver builds via DKMS against your running kernel, so no pre-built
+binaries are needed.
 
 ### 1. Install the driver
 
@@ -1921,14 +1924,16 @@ the first step.
   interface cannot express), so `75` / `80` there in Fast is expected.
 - New "Tested hardware" matrix (one confirmed row) inviting reports via
   the hardware-report issue template.
+- Requirements now state the minimum kernel (6.3+), surfaced by the
+  `build-lts` CI job when 5.15 failed to compile.
 
 **CI**
 - Module compile-checks (`KCFLAGS=-Werror`, never loaded): a `build`
   matrix against generic and newest-HWE headers, a `build-lts` job
-  against an older LTS kernel (Ubuntu 22.04, ~5.15) in a container, and a
-  `build-armhf` job that verifies the 32-bit cross toolchain (a real
-  armhf build needs an armhf kernel tree, reported by users).  New
-  `overlay` job compiles `x120x-overlay.dts` with `dtc`.
+  against an older *supported* LTS kernel (Ubuntu 24.04, 6.8) in a
+  container, and a `build-armhf` job that verifies the 32-bit cross
+  toolchain (a real armhf build needs an armhf kernel tree, reported by
+  users).  New `overlay` job compiles `x120x-overlay.dts` with `dtc`.
 - New `static` job runs `make W=1` (kernel extra-warnings and kernel-doc,
   any warning fails) and `sparse` (`make C=1`) over the driver.
 

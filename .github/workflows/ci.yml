@@ -77,11 +77,14 @@ jobs:
           echo "Building against $KDIR"
           make KDIR="$KDIR" KCFLAGS=-Werror
 
-  # Older LTS kernel (Ubuntu 22.04 ~ 5.15) via container, to catch
-  # regressions against kernels older than the runner's.
+  # Oldest supported LTS kernel via container, to catch regressions against
+  # kernels older than the runner's.  The driver requires a modern kernel
+  # (~6.3+: the one-arg i2c .probe, the sys-off handler framework, and the
+  # void i2c .remove), so an older LTS such as Ubuntu 22.04 / 5.15 is below
+  # the floor and is deliberately not tested.  24.04 ships 6.8.
   build-lts:
     runs-on: ubuntu-latest
-    container: ubuntu:22.04
+    container: ubuntu:24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -90,7 +93,7 @@ jobs:
           apt-get update
           apt-get install -y build-essential linux-headers-generic make
 
-      - name: Compile-check against 22.04 generic (-Werror)
+      - name: Compile-check against 24.04 generic (-Werror)
         run: |
           KDIR=$(ls -d /lib/modules/*/build | sort -V | tail -1)
           echo "Building against $KDIR"
@@ -143,7 +146,10 @@ jobs:
           KDIR=$(ls -d /lib/modules/*/build | sort -V | tail -1)
           echo "Building against $KDIR"
           make KDIR="$KDIR" W=1 KCFLAGS=-Werror 2>&1 | tee w1.log
-          if grep -qiE 'warning' w1.log; then echo "W=1 produced warnings"; exit 1; fi
+          # Ignore the benign Kbuild "compiler differs from the one used to
+          # build the kernel" environment notice; fail on any real warning.
+          warns=$(grep -iE 'warning' w1.log | grep -viE 'compiler differs from the one used to build the kernel' || true)
+          if [ -n "$warns" ]; then echo "W=1 warnings:"; printf '%s\n' "$warns"; exit 1; fi
 
       # sparse prints findings but exits 0; fail on any on our source.
       - name: sparse (make C=1)
