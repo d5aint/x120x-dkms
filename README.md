@@ -1917,6 +1917,16 @@ the first step.
   writes and rejects a band-inverting value with `-EINVAL`; probe clamps
   `battery_mah` to `[1, 500000]` to avoid an integer overflow in the
   ENERGY_FULL property.
+- Driver: the poll work item is now initialized before any power_supply
+  is registered, closing a use-before-init window where a deferred
+  `external_power_changed` event could call `mod_delayed_work()` on an
+  uninitialized work item.
+- Driver: the `conservation_start`, `conservation_end`, and
+  `conservation_mode_default` module parameters are now `0444`
+  (read-only at runtime).  Load-time `modprobe.d` configuration is
+  unchanged; runtime threshold changes go through the validating,
+  locking `charge_control_*_threshold` sysfs properties, and the charge
+  mode follows `charge_type` writes.
 - CI drops to `permissions: contents: read` and pins `actions/checkout`
   to a commit SHA.
 

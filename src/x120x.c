@@ -181,14 +181,20 @@ MODULE_PARM_DESC(battery_mah,
  * hysteresis block in x120x_poll_work).
  */
 static int conservation_start = 75;
-module_param(conservation_start, int, 0644);
+module_param(conservation_start, int, 0444);
 MODULE_PARM_DESC(conservation_start,
-	"SoC %% at which charging resumes in Long Life mode (default 75)");
+	"SoC %% at which charging resumes in Long Life mode (default 75). "
+	"Set at load time via modprobe.d; change it at runtime through the "
+	"charge_control_start_threshold sysfs property, which validates "
+	"and locks the update.");
 
 static int conservation_end = 80;
-module_param(conservation_end, int, 0644);
+module_param(conservation_end, int, 0444);
 MODULE_PARM_DESC(conservation_end,
-	"SoC %% at which charging stops in Long Life mode (default 80)");
+	"SoC %% at which charging stops in Long Life mode (default 80). "
+	"Set at load time via modprobe.d; change it at runtime through the "
+	"charge_control_end_threshold sysfs property, which validates "
+	"and locks the update.");
 
 /*
  * conservation_mode_default — persists charge mode across reboots.
@@ -198,10 +204,12 @@ MODULE_PARM_DESC(conservation_end,
  * by the installer.
  */
 static int conservation_mode_default = 0;
-module_param(conservation_mode_default, int, 0644);
+module_param(conservation_mode_default, int, 0444);
 MODULE_PARM_DESC(conservation_mode_default,
 	"Start in Long Life mode (1) or Fast mode (0, default). "
-	"Updated on every charge_type sysfs write; persisted by udev rule.");
+	"Set at load time via modprobe.d; at runtime the mode follows "
+	"charge_type sysfs writes (the driver updates this internally and a "
+	"udev rule persists it to modprobe.d), not this read-only param.");
 
 /* -------------------------------------------------------------------------
  * MAX17043 register definitions (X120x board layout)
@@ -1543,6 +1551,18 @@ static int x120x_probe(struct i2c_client *client)
 	chip->client  = client;
 	chip->present = true;
 	mutex_init(&chip->lock);
+
+	/*
+	 * Initialize the poll work before registering any power_supply.
+	 * The battery's external_power_changed callback calls
+	 * mod_delayed_work() on chip->work, and the power-supply core can
+	 * deliver a deferred "changed" event from the earlier AC/charger
+	 * registrations as soon as the battery registers — before the old
+	 * init site (down by "Start polling") would have run.  The work
+	 * item must exist before any supply is registered.
+	 */
+	INIT_DELAYED_WORK(&chip->work, x120x_poll_work);
+
 	i2c_set_clientdata(client, chip);
 
 	/*
@@ -1709,6 +1729,12 @@ static int x120x_probe(struct i2c_client *client)
 	ret = regmap_read(chip->regmap, MAX17043_REG_SOC, &soc_raw);
 	if (!ret) {
 		soc_pct = MAX17043_SOC_INT(soc_raw);
+		/*
+		 * soc_pct is derived from an unsigned 16-bit register (>> 8),
+		 * so it is always >= 0: the MIN_PLAUSIBLE (0) side never fires
+		 * and is kept only for symmetry; the MAX_PLAUSIBLE (100) side
+		 * is the live check.
+		 */
 		if (soc_pct < MAX17043_SOC_MIN_PLAUSIBLE ||
 		    soc_pct > MAX17043_SOC_MAX_PLAUSIBLE) {
 			dev_info(dev,
@@ -1760,7 +1786,7 @@ static int x120x_probe(struct i2c_client *client)
 	}
 
 	/* -- Start polling ------------------------------------------------ */
-	INIT_DELAYED_WORK(&chip->work, x120x_poll_work);
+	/* chip->work was initialized up front, before any supply register. */
 	schedule_delayed_work(&chip->work, 0);
 
 	/* -- Register hwmon device ---------------------------------------- */
