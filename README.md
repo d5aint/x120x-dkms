@@ -1084,15 +1084,15 @@ to compile the module.
 DKMS expects the source under `/usr/src/<name>-<version>/`:
 
 ```bash
-sudo cp -r . /usr/src/x120x-0.4.5
+sudo cp -r . /usr/src/x120x-0.4.6
 ```
 
 #### Step 3 — Build and install the kernel module
 
 ```bash
-sudo dkms add x120x/0.4.5
-sudo dkms build x120x/0.4.5
-sudo dkms install x120x/0.4.5
+sudo dkms add x120x/0.4.6
+sudo dkms build x120x/0.4.6
+sudo dkms install x120x/0.4.6
 ```
 
 You will see compiler output scroll past — this is normal.  The build
@@ -1105,7 +1105,7 @@ Verify the module is installed:
 dkms status
 ```
 
-You should see `x120x/0.4.5, <kernel-version>, aarch64: installed`.
+You should see `x120x/0.4.6, <kernel-version>, aarch64: installed`.
 
 #### Step 4 — Compile the device tree overlay
 
@@ -1800,6 +1800,40 @@ should still trigger the same diagnostic (`uevent_seqnum` delta) as
 the first step.
 
 ## Changelog
+
+### v0.4.6 — Automatic Pi 5 bootloader configuration, troubleshooting guide
+
+**Installer**
+- `install.sh` now stages the two required Pi 5 bootloader EEPROM
+  settings (`POWER_OFF_ON_HALT=1`, `PSU_MAX_CURRENT=5000`) itself, rather
+  than only warning if they were missing.  The read-modify-apply is
+  idempotent (no EEPROM write when both are already correct), rewrites a
+  differing prior value with no special case, and leaves every other key
+  untouched.  `--apply` only stages the update; the bootloader flashes it
+  at the next boot, so it lands with the reboot the installer requests.
+  A successful-but-empty config read is guarded so it can never stage a
+  config that wipes the rest of the EEPROM.  `--skip-eeprom` opts out.
+- Temp files are tracked in a single cleanup list removed by one EXIT
+  trap, so nothing leaks if the script is killed mid-run.
+
+**Documentation**
+- Getting started restructured around the automatic bootloader setup:
+  two steps (install, monitor) with a single reboot, concrete
+  per-board install commands (no more `<your_capacity>` placeholder),
+  and an OS-requirements note.
+- New Troubleshooting section (symptom → check → fix) for the common
+  novice failure modes.
+- `## Required bootloader settings (Raspberry Pi 5)` is now the single
+  canonical reference for the settings, what they do, their caveats, and
+  the manual one-liner.
+
+**Tests**
+- New `tests/test-install.sh` harness covering `configure_bootloader()`
+  against a mocked `rpi-eeprom-config` and device-tree model path.
+
+**Note**
+- The kernel module is unchanged from v0.4.5; the version is bumped to
+  keep the package, DKMS, and module versions in lockstep.
 
 ### v0.4.5 — Enforce the 2% low-battery shutdown threshold
 
