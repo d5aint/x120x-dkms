@@ -110,7 +110,7 @@ and advanced configuration in depth.
 If something is not working after installing and rebooting, find your
 symptom below.  Every command is safe to copy-paste.
 
-#### No battery icon after reboot
+### No battery icon after reboot
 
 First check that the driver loaded:
 
@@ -134,7 +134,7 @@ x120x 1-0036: x120x UPS ready (battery=x120x-battery ac=x120x-ac charger=x120x-c
   not making contact.  Power down, re-seat the Pi firmly on the UPS
   board's pogo pins, and confirm you passed the right `--board`.
 
-#### Devices exist but no icon in the taskbar
+### Devices exist but no icon in the taskbar
 
 Check whether the power-supply devices are present:
 
@@ -153,21 +153,21 @@ upower -e
 Then log out and back in; some desktop panels also need the battery
 indicator enabled in their panel/applet settings.
 
-#### capacity reads 0% or nonsense on the first boot
+### capacity reads 0% or nonsense on the first boot
 
 The MAX17043 fuel gauge needs a little time to converge after first
 power-up — give it a few minutes.  If it stays at 0% with the charger
 connected, the cells may have been deep-discharged; see *Dead battery
 detection* and the deep-discharge recovery notes.
 
-#### ac_online is 0 with the charger plugged in
+### ac_online is 0 with the charger plugged in
 
 This is almost always the GPIO6 AC-detect line floating at boot — see
 *GPIO6 pull-up*.  If the charger LED is lit and `ac_online` stays `0`
 across reboots (with `gpio=6=pu` in `config.txt`), suspect a failed
 board — see *Incident 2* for the field-failure signature.
 
-#### Build failed / DKMS errors
+### Build failed / DKMS errors
 
 Almost always missing kernel headers.  Install the ones matching your
 running kernel and reinstall:
@@ -178,7 +178,7 @@ sudo apt install linux-headers-$(uname -r)
 
 See *Step 1* of the manual installation for details.
 
-#### Opening a GitHub issue
+### Opening a GitHub issue
 
 If none of the above helps, open an issue and include the output of:
 

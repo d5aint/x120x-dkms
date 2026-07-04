@@ -21,7 +21,9 @@ INSTALL_SH="${HERE}/../install.sh"
 WORK=$(mktemp -d)
 trap 'rm -rf -- "${WORK}"' EXIT
 
-# Extract just the function under test.
+# Extract just the function under test.  This sed range works only
+# because configure_bootloader()'s closing brace is the first column-0
+# "}" after its opener — keep it that way (no top-level "}" in the body).
 CB_SRC=$(sed -n '/^configure_bootloader() {/,/^}/p' "${INSTALL_SH}")
 [ -n "${CB_SRC}" ] || { echo "could not extract configure_bootloader() from install.sh" >&2; exit 2; }
 
