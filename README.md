@@ -1353,6 +1353,8 @@ multiplied by per-cell capacity.  For example, an X1206 with four
 x120x-dkms/
 ├── README.md
 ├── LICENSE
+├── SECURITY.md               — vulnerability reporting policy
+├── RELEASING.md              — on-hardware release checklist
 ├── .gitignore                — build-artifact ignore rules
 ├── Makefile                  — DKMS build entry point
 ├── dkms.conf                 — DKMS package definition
@@ -1922,6 +1924,9 @@ the first step.
   and a hardware test report for experimental boards (X728 / X708 /
   X729) and armhf builds; blank issues stay enabled.  Dependabot keeps
   the pinned GitHub Actions fresh weekly.
+- `SECURITY.md` (private vulnerability reporting, latest-release support,
+  best-effort response) and `RELEASING.md` (the on-hardware release
+  checklist codified from the v0.4.6 process).
 
 **Tooling**
 - `tools/collect-debug.sh` — a no-root one-shot diagnostics collector
