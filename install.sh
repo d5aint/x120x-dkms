@@ -610,8 +610,11 @@ cat > "${PERSIST_SCRIPT}" << 'PERSIST_EOF'
 # x120x-persist-mode.sh — called by udev when charge_type changes.
 # Writes conservation_mode_default to /etc/modprobe.d/x120x.conf so
 # the charge mode (Fast or Long Life) survives reboots.
-CONF=/etc/modprobe.d/x120x.conf
-CHARGE_TYPE=$(cat /sys/class/power_supply/x120x-charger/charge_type 2>/dev/null)
+# CONF and the charge_type source default to the real paths but are
+# overridable (X120X_CONF, X120X_CHARGE_TYPE_PATH) for testing.
+CONF="${X120X_CONF:-/etc/modprobe.d/x120x.conf}"
+CHARGE_TYPE_PATH="${X120X_CHARGE_TYPE_PATH:-/sys/class/power_supply/x120x-charger/charge_type}"
+CHARGE_TYPE=$(cat "$CHARGE_TYPE_PATH" 2>/dev/null)
 case "$CHARGE_TYPE" in
     "Long Life") MODE=1 ;;
     *)           MODE=0 ;;
