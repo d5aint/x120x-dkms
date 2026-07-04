@@ -208,6 +208,10 @@ cat /etc/os-release           # OS version
 
 plus which UPS board you have.
 
+Or just run `tools/collect-debug.sh` from a checkout (no root required) —
+it gathers all of the above, plus the driver's sysfs state, into a single
+paste-ready block.
+
 ---
 
 ## Supported hardware
@@ -1356,7 +1360,10 @@ x120x-dkms/
 │   ├── test-install.sh
 │   ├── test-ini-blocks.sh
 │   ├── test-args.sh
-│   └── test-persist.sh
+│   ├── test-persist.sh
+│   └── test-collect-debug.sh
+├── tools/
+│   └── collect-debug.sh      — one-shot diagnostics paste (see Troubleshooting)
 └── .github/
     ├── dependabot.yml        — weekly GitHub Actions updates
     ├── workflows/ci.yml      — CI: shell, module build, overlay
@@ -1903,6 +1910,14 @@ the first step.
   and a hardware test report for experimental boards (X728 / X708 /
   X729) and armhf builds; blank issues stay enabled.  Dependabot keeps
   the pinned GitHub Actions fresh weekly.
+
+**Tooling**
+- `tools/collect-debug.sh` — a no-root one-shot diagnostics collector
+  (Pi model, OS, kernel, `dkms status`, `dmesg`, power_supply devices,
+  sysfs values, module params, `modprobe.d`) into one paste-ready block;
+  runs cleanly whether or not the driver is loaded.  Referenced from
+  Troubleshooting and the bug template, with a test covering the
+  driver-present and driver-absent paths.
 
 ### v0.4.6 — Automatic Pi 5 bootloader configuration, troubleshooting guide
 

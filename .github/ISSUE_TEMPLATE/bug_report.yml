@@ -7,6 +7,9 @@ body:
       value: |
         Please fill in the diagnostics below.  They mirror the README
         Troubleshooting checklist and let us reproduce the problem quickly.
+
+        Tip: `tools/collect-debug.sh` (no root needed) gathers all of
+        these into one paste-ready block.
   - type: input
     id: board
     attributes:
