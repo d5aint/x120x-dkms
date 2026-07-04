@@ -591,6 +591,19 @@ on a pack sized close to its job (here ~6 h against typical 2–5 h
 outages), limiting to 80% sheds backup time you are actually using, with
 no practical payback — which is exactly why `Fast` is the default.
 
+#### Does Long Life give more outage runtime over time?
+
+It is sometimes assumed that over years of always-on operation Long Life
+ends up giving *more* outage runtime — the idea being that its cells age
+less, so the retained capacity offsets the lower starting charge.  For
+the realistic life of a UPS this is **not** true.  Long Life also starts
+every outage a full 20 points lower, and that head start is not repaid by
+slower aging until well over two decades in; until then a 100%-held
+(`Fast`) battery delivers more usable runtime despite aging faster (see
+the year-by-year model above).  On a standby UPS, Long Life's real
+benefit is **deferred cell replacement, not better outage protection** —
+which is why `Fast` is the default.
+
 ### Dead battery detection
 
 #### How lithium-ion cells die
@@ -668,20 +681,6 @@ x120x 1-0036: battery appears dead: 3050 mV on grid for 600 s with <10 mV/h rise
 
 The health flag clears automatically if the condition resolves — for
 example after replacing the cells.
-
-#### Does Long Life give more outage runtime over time?
-
-It is sometimes assumed that over years of always-on operation Long Life
-ends up giving *more* outage runtime — the idea being that its cells age
-less, so the retained capacity offsets the lower starting charge.  For
-the realistic life of a UPS this is **not** true.  Long Life also starts
-every outage a full 20 points lower, and that head start is not repaid by
-slower aging until well over two decades in; until then a 100%-held
-(`Fast`) battery delivers more usable runtime despite aging faster (see
-*Choosing a profile: runtime vs. longevity* for the year-by-year model).
-On a standby UPS, Long Life's real benefit is **deferred cell
-replacement, not better outage protection** — which is why `Fast` is the
-default.
 
 ### Charge mode persistence
 
@@ -900,7 +899,6 @@ sudo bash install.sh --battery-mah 10000
 
 # Portable build cycled most days — Long Life to extend cell lifespan
 sudo bash install.sh --battery-mah 20000 --charge-mode longlife
-
 
 # Show available options
 sudo bash install.sh --help
@@ -1153,6 +1151,9 @@ To load automatically at boot without the overlay, add `x120x` to
 `/etc/modules`.
 
 ## Verifying operation
+
+(These are the same checks as Step 10 of the manual installation,
+collected here for quick reference.)
 
 ```bash
 # Kernel log
@@ -1555,6 +1556,8 @@ LED indicating input power, and the pattern persists across multiple
 reboots with the v0.3.0+ driver and `gpio=6=pu` in place, the board
 itself should be suspected and replaced.  The driver cannot work around
 a permanently failed GPIO6 output stage.
+
+---
 
 ### Incident 3 — uevent storm from uninitialised stack variable (2026-05-20)
 
@@ -2031,4 +2034,3 @@ own time on my own hardware.  It is not affiliated with or endorsed by SupTronic
 ## License
 
 GPL v2
-
