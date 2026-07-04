@@ -1877,9 +1877,10 @@ the first step.
 
 **Documentation**
 - Getting started restructured around the automatic bootloader setup:
-  two steps (install, monitor) with a single reboot, concrete
-  per-board install commands (no more `<your_capacity>` placeholder),
-  and an OS-requirements note.
+  two steps (install, monitor) with a single reboot, a per-board
+  install-command table for every supported board (a real capacity
+  where the cells are fixed, `<your_capacity>` only for external-pack
+  boards), and an OS-requirements note.
 - New Troubleshooting section (symptom → check → fix) for the common
   novice failure modes.
 - `## Required bootloader settings (Raspberry Pi 5)` is now the single
