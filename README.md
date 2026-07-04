@@ -237,6 +237,17 @@ supported by this driver:
 ² Connects via the 40-pin GPIO header.  An optional pogo pin enables
   the power button function on Pi 5; not required on Pi 4/3.
 
+### Tested hardware
+
+Configurations confirmed working on real hardware.  To add a row, file a
+[hardware test report](../../issues/new?template=hardware_report.yml) —
+reports for other boards, Pi models, kernels, and 32-bit armhf are very
+welcome.
+
+| Board | Pi            | Driver | Kernel | Arch    | Reporter   |
+|-------|---------------|--------|--------|---------|------------|
+| X1206 | Raspberry Pi 5 | v0.4.6 | 6.12.x | aarch64 | maintainer |
+
 ### Experimental board support
 
 The driver includes **untested, experimental** support for older Geekworm
@@ -1908,6 +1919,8 @@ the first step.
 - Note that `charge_control_*_threshold` reports the Long Life band even
   in `Fast` mode (Fast uses a fixed 100% / 95% band the standard sysfs
   interface cannot express), so `75` / `80` there in Fast is expected.
+- New "Tested hardware" matrix (one confirmed row) inviting reports via
+  the hardware-report issue template.
 
 **CI**
 - Module compile-checks (`KCFLAGS=-Werror`, never loaded): a `build`
