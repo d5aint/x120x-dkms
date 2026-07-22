@@ -535,11 +535,13 @@ capacity the cells have retained to that point.
 >   every row down proportionally but does **not** change the ranking.
 > - **Shutdown floor:** 2% SoC — where the driver's UPower
 >   `PercentageAction` fires the clean OS shutdown.
-> - **Starting charge:** the X1206 has a small standby drain (~20 mW of
->   board/gauge quiescent draw on the battery rail), so a full pack
->   slowly loses charge and tops back up — a shallow sawtooth: `Fast`
->   between 100% and 95% (recharging roughly weekly), `Long Life` between
->   80% and 75% (at rest, a Fast-held pack relaxes to ~4.18 V).  The
+> - **Starting charge:** the X1206 has a small standby drain (~13 mW of
+>   board/gauge quiescent draw on the battery rail, measured — see
+>   [Measured: the standby sawtooth](#measured-the-standby-sawtooth)), so
+>   a full pack slowly loses charge and tops back up — a shallow
+>   sawtooth: `Fast` between 100% and 95% (recharging every ~9–10 days),
+>   `Long Life` between 80% and 75% (at rest, a Fast-held pack relaxes to
+>   ~4.18 V).  The
 >   table uses the top of each band; since the pack spends its time
 >   evenly across the band, a typical outage starts ~mid-band (~2.5
 >   points / ~0.15 h lower).
@@ -552,10 +554,13 @@ capacity the cells have retained to that point.
 >   +10 °C, so a pack running warm (e.g. in the Pi's exhaust) ages far
 >   faster than this and *both* columns shrink.
 > - **Cycle aging is small but not quite zero** — that standby sawtooth
->   is a few full-equivalent cycles per year.  It adds marginally more
->   wear under `Fast` (cycling at 95–100%, the harshest region) than
->   under `Long Life` (75–80%), but it is dwarfed by the calendar-aging
->   difference above, so calendar aging still dominates.  A genuinely
+>   is ~1.6–1.9 full-equivalent cycles per year, measured (see
+>   [Measured: the standby sawtooth](#measured-the-standby-sawtooth)).
+>   It adds marginally more wear under `Fast` (cycling at 95–100%, the
+>   harshest region) than under `Long Life` (75–80%) — though both
+>   profiles cycle about equally *often* — and it is dwarfed by the
+>   calendar-aging difference above, so calendar aging still dominates.
+>   A genuinely
 >   cycled build (e.g. portable) is a different regime — see *Frequently
 >   cycled builds* below.
 > - Runtime is treated as proportional to the state-of-charge span,
@@ -617,6 +622,50 @@ wins on **capacity retention** — worthwhile if the pack is oversized
 relative to your worst outage, or if postponing the eventual (cheap)
 replacement matters more than per-outage runtime.  For most standby
 installs that is not a good trade, which is why `Fast` is the default.
+
+#### Measured: the standby sawtooth
+
+The model above leans on an assumption — that the standby sawtooth is
+worth only a few full-equivalent cycles a year.  That assumption has now
+been measured, on the maintainer's own X1206 (4× 21700,
+`--battery-mah 20000`) in `Fast` mode, from a minute-resolution log:
+
+| Quantity | Measured |
+|---|---|
+| Sawtooth band | 100% → 95.9% (≈4.1 points by voltage) |
+| Time between recharges | **9.5 days** |
+| Recharges per year | ~38 |
+| **Full-equivalent cycles per year** | **~1.6–1.9** |
+| Time-weighted mean state of charge | 98.7% |
+| Standby drain, averaged over a full cycle | ~0.43%/day (≈13 mW at the pack) |
+
+At that rate a pack that spends its entire life on this UPS accumulates
+roughly **40–50 full-equivalent cycles in 25 years** — under 10% of the
+several-hundred-cycle rating of any reasonable NMC cell.  On a standby
+UPS, cycle aging is not merely "dominated by" calendar aging; it is
+close to irrelevant.
+
+**This does not favour either profile.**  `Long Life` cycles a band of
+the same width (80% → 75%) under the same quiescent drain, so it
+recharges about as often — every ~11–12 days, ~31 times a year, ~1.6
+full-equivalent cycles.  The profiles differ almost entirely in **mean
+state of charge** (98.7% vs ~77.5%), which is a calendar-aging term, not
+a cycle-count one.  The `Fast` sawtooth does sit in the harsher 95–100%
+region, so each of its cycles costs a little more — but there are so few
+of them that the difference stays in the noise.  The measurement
+therefore *supports* the ranking above rather than changing it.
+
+> **Caveats — this is one data point, not a characterisation.**  One
+> pack, one board, two complete cycles observed.  State of charge here is
+> derived from resting voltage (3.3 V = 0%, 4.2 V = 100%), not
+> coulomb-counted, and that mapping is compressed at the top of the
+> curve: the pack *appears* to hold 100% for ~2.5 days after each
+> recharge and then fall at ~0.58%/day, but that shape is an artifact of
+> the voltage map, not a real pause.  The robust figure is the **9.5-day
+> recharge period**; every rate derived from it inherits the mapping's
+> error.  An earlier estimate of ~0.7%/day for this same pack came from
+> timing only the visible decline, which excludes that flat top and so
+> overstates the drain — the full-cycle average is ~0.43%/day.
 
 #### Frequently cycled builds (e.g. portable) — why `Long Life` wins
 
@@ -1915,6 +1964,15 @@ the first step.
 - Note that `charge_control_*_threshold` reports the Long Life band even
   in `Fast` mode (Fast uses a fixed 100% / 95% band the standard sysfs
   interface cannot express), so `75` / `80` there in Fast is expected.
+- New [Measured: the standby sawtooth](#measured-the-standby-sawtooth):
+  the standby sawtooth is now measured rather than assumed — 9.5 days
+  between recharges, ~38 recharges and ~1.6–1.9 full-equivalent cycles
+  per year, ~0.43%/day drain (≈13 mW).  It confirms the profile ranking:
+  cycle aging is close to irrelevant on a standby UPS, and both profiles
+  cycle about equally often, so they differ almost entirely in *mean*
+  state of charge (98.7% vs ~77.5%) — a calendar-aging term.  Corrects
+  the earlier "roughly weekly" and "~20 mW" estimates, which timed only
+  the visible decline and so excluded the flat top of the voltage curve.
 - New "Tested hardware" matrix (one confirmed row) inviting reports via
   the hardware-report issue template.
 - Requirements now state the minimum kernel (6.3+), surfaced by the
