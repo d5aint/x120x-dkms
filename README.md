@@ -1,5 +1,8 @@
 # x120x-dkms — SupTronics UPS HAT kernel driver
 
+[![CI](https://github.com/mor-lock/x120x-dkms/actions/workflows/ci.yml/badge.svg)](https://github.com/mor-lock/x120x-dkms/actions/workflows/ci.yml)
+[![License: GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue.svg)](LICENSE)
+
 A DKMS kernel driver for SupTronics UPS HAT boards on Raspberry Pi,
 distributed by Geekworm.  Covers the X120x series and experimentally
 the X728, X729, and X708.
@@ -1405,6 +1408,7 @@ x120x-dkms/
 ├── README.md
 ├── LICENSE
 ├── SECURITY.md               — vulnerability reporting policy
+├── CONTRIBUTING.md           — build, test, and PR guidelines
 ├── RELEASING.md              — on-hardware release checklist
 ├── .gitignore                — build-artifact ignore rules
 ├── Makefile                  — DKMS build entry point
@@ -1529,6 +1533,13 @@ This driver follows the conventions of
 `drivers/power/supply/max17040_battery.c` in the mainline kernel.
 Upstreaming is a future goal once the driver has proven itself in
 production use.
+
+## Contributing
+
+Bug reports, hardware reports for the experimental boards, and patches
+are all welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+build, run the test suite (`make test`, unprivileged), and what CI
+checks a pull request must pass.
 
 ## Real-world incidents that shaped this driver
 
