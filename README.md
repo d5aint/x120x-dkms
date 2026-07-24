@@ -56,10 +56,10 @@ capacity for you.  Copy-paste the one that matches:
 | X1207 | 1× 21700 (PoE) | `sudo bash install.sh --battery-mah 5000` |
 | X1208 | 1× 21700 + NVMe | `sudo bash install.sh --battery-mah 5000` |
 | X1209 | External Li-ion | `sudo bash install.sh --battery-mah <your_capacity>` |
-| X708 *(experimental)* | External Li-ion | `sudo bash install.sh --board x708 --battery-mah <your_capacity>` |
-| X728 V1.x *(experimental)* | 2× 18650 | `sudo bash install.sh --board x728v1 --battery-mah 6000` |
-| X728 V2.x *(experimental)* | 2× 18650 | `sudo bash install.sh --board x728v2 --battery-mah 6000` |
-| X729 *(experimental)* | 2× 18650 | `sudo bash install.sh --board x729 --battery-mah 6000` |
+| X708 *(experimental)* | External Li-ion | not yet installable — see [Experimental board support](#experimental-board-support) |
+| X728 V1.x *(experimental)* | 2× 18650 | not yet installable — see [Experimental board support](#experimental-board-support) |
+| X728 V2.x *(experimental)* | 2× 18650 | not yet installable — see [Experimental board support](#experimental-board-support) |
+| X729 *(experimental)* | 2× 18650 | not yet installable — see [Experimental board support](#experimental-board-support) |
 
 The table assumes 3000 mAh 18650 cells and 5000 mAh 21700 cells — check
 the mAh printed on your actual cells and multiply by the cell count if
@@ -256,20 +256,44 @@ OS shutdown — without it the UPS stays on indefinitely after `poweroff`.
 | X708 | Pi 4/3 only | GPIO13 | None (GPIO16 = fan speed) |
 | X729 | All Pi models | GPIO26 | None |
 
-To install for an X728 V2.x board:
+**Not yet installable.** `install.sh` refuses `--board` variants other
+than `x120x`: no per-board device tree overlay ships with this release,
+and the `x120x` overlay has no `power-off-gpios` property — so the
+power-off pulse these boards require after shutdown could never fire,
+and the UPS would keep draining the pack indefinitely after `poweroff`
+(the deep-discharge scenario this driver exists to prevent).  Refusing
+is better than installing a setup that looks complete but silently
+lacks its most important safety behaviour.  Per-board overlays are
+future work and need hardware reports to validate.
 
-```bash
-sudo bash install.sh --battery-mah 6000 --board x728v2
-sudo reboot
-```
+If you have one of these boards and want to help develop support, the
+manual path is:
 
-Available board variants: `x120x` (default), `x728v2`, `x728v1`, `x708`, `x729`.
+1. Copy `x120x-overlay.dts` and add the board's power-off GPIO to the
+   UPS node — `power-off-gpios = <&gpio 26 0>;` for X728 V2.x / X729,
+   GPIO 13 for X728 V1.x / X708 (see the table above).
+2. Compile and install the overlay
+   (see [Manual installation](#manual-installation-step-by-step),
+   steps 4–6).
+3. Run the normal installation (`sudo bash install.sh --battery-mah …`),
+   add `board=x728v2` (or your variant) to the `options x120x` line in
+   `/etc/modprobe.d/x120x.conf`, and reboot.
+
+On success the driver logs `power-off handler registered` at probe;
+please report results via the
+[hardware test report](../../issues/new?template=hardware_report.yml)
+template.
+
+Board variants understood by the driver: `x120x` (default), `x728v2`,
+`x728v1`, `x708`, `x729`.
 
 **Important notes for experimental boards:**
 
 - Long Life mode is only available on boards with charge control (X120x and
-  X728 V2.5). On all other boards a `Long Life` write is rejected and
-  `charge_type` always reads `Fast`.
+  X728 V2.5). On all other boards — and whenever the charge-control GPIO is
+  absent from the device tree — a `Long Life` write is rejected,
+  `charge_type` always reads `Fast`, and `charge_type` plus both
+  `charge_control_*_threshold` files are read-only.
 - The power-off GPIO pulse is registered via a sys-off handler
   (`SYS_OFF_MODE_POWER_OFF_PREPARE`) and fires after `systemctl
   poweroff`.  The DT overlay must provide the `power-off-gpios` property
@@ -1069,7 +1093,7 @@ Optional arguments configure the driver at install time:
 |---|---|---|
 | `--battery-mah N` | `1000` | Total pack capacity in mAh. Multiply per-cell capacity by number of cells. |
 | `--charge-mode MODE` | `fast` | Initial charge mode: `fast` or `longlife`. Persisted across reboots. See Getting started for guidance on which to choose. |
-| `--board VARIANT` | `x120x` | Board variant. See Experimental board support for details. Variants other than `x120x` are untested. |
+| `--board VARIANT` | `x120x` | Board variant. Only `x120x` is currently installable — other variants are refused until per-board overlays ship. See [Experimental board support](#experimental-board-support). |
 | `--skip-eeprom` | _(off)_ | Do not modify Pi 5 bootloader EEPROM settings (`POWER_OFF_ON_HALT`, `PSU_MAX_CURRENT`); configure them manually — see Required bootloader settings. |
 
 Examples:
@@ -1961,10 +1985,40 @@ the first step.
   charger after a `charge_type` write (outside `chip->lock`), so the udev
   charge-mode persistence runs on the write itself rather than waiting
   for the next poll/heartbeat cycle to emit the charger uevent.
+- When the charge-control GPIO is absent from the device tree, the
+  driver now demotes itself to a no-charge-control board: `charge_type`
+  and both `charge_control_*_threshold` files become read-only and a
+  `Long Life` write is rejected with `EOPNOTSUPP`.  Previously the write
+  was accepted and read back as `Long Life` while the poll loop —
+  which gates on the GPIO descriptor — silently enforced nothing,
+  contradicting the probe warning that promised read-only behaviour.
+  Threshold writes are likewise rejected on boards without charge
+  control instead of being accepted and ignored.
+- `conservation_start` / `conservation_end` module parameters are now
+  validated at probe against the same rules as the sysfs store paths
+  (start 0–99, end 1–100, start < end), falling back to the 75/80
+  defaults with a warning.  Previously e.g. `conservation_end=200` in
+  `/etc/modprobe.d` loaded silently and the stop threshold never
+  triggered.  Mirrors the existing `battery_mah` probe-time clamp.
+- `MODULE_LICENSE` changed from `"GPL v2"` to the canonical `"GPL"`,
+  deferring to the SPDX `GPL-2.0-or-later` headers as the authoritative
+  license statement (the README's License section now says the same —
+  the three previously disagreed).
 
 **Installer**
 - `install_ini_block` no longer accumulates a leading blank line before
   its marker block on reinstall — a repeat install is now byte-identical.
+- `--charge-mode` and `--board` with a missing value now die with a
+  clean usage error instead of crashing with bash's unbound-variable
+  message under `set -u` (`--battery-mah` already handled this; the
+  test suite now covers all three).
+- `--board` variants other than `x120x` are refused with an explanation:
+  no per-board device tree overlay ships yet, so the power-off pulse
+  those boards require after shutdown cannot work and the UPS would
+  drain the pack indefinitely after `poweroff`.  Previously the
+  installer proceeded and produced exactly that setup.  The README's
+  [Experimental board support](#experimental-board-support) section now
+  documents the manual development path instead.
 
 **Documentation**
 - Getting started restructured for first-time users (newbie-first
@@ -2421,4 +2475,6 @@ SupTronics, Geekworm, or my employer.
 
 ## License
 
-GPL v2
+GPL-2.0-or-later.  Every source file carries an SPDX
+`GPL-2.0-or-later` header; the full GPL-2.0 text is in
+[LICENSE](LICENSE).

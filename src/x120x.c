@@ -1182,6 +1182,8 @@ static int x120x_charger_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD:
+		if (!chip->has_charge_ctrl)
+			return -EOPNOTSUPP;
 		if (val->intval < 0 || val->intval > 99)
 			return -EINVAL;
 		/*
@@ -1201,6 +1203,8 @@ static int x120x_charger_set_property(struct power_supply *psy,
 		return 0;
 
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
+		if (!chip->has_charge_ctrl)
+			return -EOPNOTSUPP;
 		if (val->intval < 1 || val->intval > 100)
 			return -EINVAL;
 		mutex_lock(&chip->lock);
@@ -1273,6 +1277,16 @@ static int x120x_charger_set_property(struct power_supply *psy,
 static int x120x_charger_property_is_writeable(struct power_supply *psy,
 						enum power_supply_property psp)
 {
+	struct x120x_chip *chip = power_supply_get_drvdata(psy);
+
+	/*
+	 * Without the charge-control GPIO (no overlay, or a board that
+	 * lacks it) the driver cannot honour any of these writes, so
+	 * expose the sysfs files read-only as the probe warning promises.
+	 */
+	if (!chip->has_charge_ctrl)
+		return 0;
+
 	return psp == POWER_SUPPLY_PROP_CHARGE_TYPE ||
 	       psp == POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD ||
 	       psp == POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD;
@@ -1601,6 +1615,23 @@ static int x120x_probe(struct i2c_client *client)
 		battery_mah = clamp(battery_mah, 1, 500000);
 	}
 
+	/*
+	 * Validate the conservation band against the same rules the sysfs
+	 * store paths enforce (start 0-99, end 1-100, start < end).  The
+	 * module parameters arrive unvalidated from /etc/modprobe.d, and a
+	 * bad band (e.g. conservation_end=200) would otherwise load
+	 * silently and never trigger the stop threshold.
+	 */
+	if (conservation_start < 0 || conservation_start > 99 ||
+	    conservation_end < 1 || conservation_end > 100 ||
+	    conservation_start >= conservation_end) {
+		dev_warn(dev,
+			 "invalid conservation band start=%d end=%d (need start 0-99, end 1-100, start < end); using defaults 75/80\n",
+			 conservation_start, conservation_end);
+		conservation_start = 75;
+		conservation_end = 80;
+	}
+
 	/* -- regmap -------------------------------------------------------- */
 	chip->regmap = devm_regmap_init_i2c(client, &x120x_regmap_config);
 	if (IS_ERR(chip->regmap)) {
@@ -1727,10 +1758,19 @@ static int x120x_probe(struct i2c_client *client)
 		dev_err(dev, "failed to get charge-ctrl GPIO: %d\n", ret);
 		return ret;
 	}
-	if (chip->has_charge_ctrl && !chip->gpio_chrg)
+	if (chip->has_charge_ctrl && !chip->gpio_chrg) {
 		dev_warn(dev,
 			 "charge-ctrl GPIO not found - charge_type will be read-only\n"
 			 "Install the device tree overlay: dtoverlay=x120x\n");
+		/*
+		 * Demote to a board without charge control: the write paths
+		 * gate on has_charge_ctrl, so leaving it set would let
+		 * charge_type accept a Long Life write that the poll loop
+		 * (which gates on the descriptor) can never enforce.
+		 */
+		chip->has_charge_ctrl = false;
+		chip->conservation_mode = false;
+	}
 	/*
 	 * Explicitly force the charger on at probe.  GPIOD_OUT_LOW above
 	 * sets the initial state, but if the GPIO was previously latched
@@ -1971,7 +2011,12 @@ module_exit(x120x_exit);
 MODULE_AUTHOR("Edvard Fielding <mor-lock@users.noreply.github.com>");
 MODULE_DESCRIPTION("SupTronics UPS HAT power supply driver (X120x, X728, X708, X729)");
 MODULE_VERSION("0.4.7");
-MODULE_LICENSE("GPL v2");
+/*
+ * "GPL" is the canonical MODULE_LICENSE string for GPL-compatible
+ * modules; the precise license (GPL-2.0-or-later) is expressed by the
+ * SPDX header at the top of this file, which is authoritative.
+ */
+MODULE_LICENSE("GPL");
 
 /*
  * DISCLAIMER

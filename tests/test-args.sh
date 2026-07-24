@@ -63,12 +63,17 @@ for m in fast Fast FAST longlife long-life "Long Life"; do
     expect_accept "'${m}' accepted" "Unknown charge mode" --charge-mode "${m}"
 done
 expect_die "turbo rejected" "Unknown charge mode: turbo" --charge-mode turbo
+expect_die "missing value rejected" "requires a value" --charge-mode
 
 echo "--board"
-for b in x120x x728v2 x728v1 x708 x729; do
-    expect_accept "'${b}' accepted" "Unknown board variant" --board "${b}"
+expect_accept "'x120x' accepted" "Unknown board variant" --board x120x
+# Experimental variants parse but are refused: no per-board overlay
+# ships yet, so the power-off pulse cannot work (see install.sh).
+for b in x728v2 x728v1 x708 x729; do
+    expect_die "'${b}' refused (no overlay ships)" "not installable yet" --board "${b}"
 done
 expect_die "x999 rejected" "Unknown board variant: x999" --board x999
+expect_die "missing value rejected" "requires a value" --board
 
 echo "unknown option"
 expect_die "--frobnicate rejected" "Unknown option: --frobnicate" --frobnicate

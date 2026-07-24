@@ -290,7 +290,8 @@ while [ $# -gt 0 ]; do
             shift 2
             ;;
         --charge-mode)
-            case "$2" in
+            case "${2:-}" in
+                '') die "--charge-mode requires a value  (use fast or longlife)" ;;
                 fast|Fast|FAST)         OPT_CHARGE_MODE="fast" ;;
                 longlife|LongLife|LONGLIFE|long-life|"Long Life") OPT_CHARGE_MODE="longlife" ;;
                 *) die "Unknown charge mode: $2  (use fast or longlife)" ;;
@@ -298,8 +299,17 @@ while [ $# -gt 0 ]; do
             shift 2
             ;;
         --board)
-            case "$2" in
-                x120x|x728v2|x728v1|x708|x729) OPT_BOARD="$2" ;;
+            case "${2:-}" in
+                '') die "--board requires a value  (use x120x, x728v2, x728v1, x708, x729)" ;;
+                x120x) OPT_BOARD="$2" ;;
+                x728v2|x728v1|x708|x729)
+                    # The driver accepts board=$2, but no device tree
+                    # overlay ships for these boards yet: the power-off
+                    # GPIO pulse they need after shutdown cannot work, and
+                    # the UPS would keep draining the pack indefinitely.
+                    # Refuse rather than install a silently broken setup.
+                    die "--board $2 is not installable yet: no $2 device tree overlay ships with this release, so the power-off pulse after shutdown cannot work.  See 'Experimental board support' in the README for the manual development path."
+                    ;;
                 *) die "Unknown board variant: $2  (use x120x, x728v2, x728v1, x708, x729)" ;;
             esac
             shift 2
@@ -314,6 +324,10 @@ while [ $# -gt 0 ]; do
             echo "  --skip-eeprom  Do not modify Raspberry Pi bootloader EEPROM settings"
             echo "                 (POWER_OFF_ON_HALT, PSU_MAX_CURRENT).  You are then"
             echo "                 responsible for configuring them manually — see README."
+            echo
+            echo "  --board        Only x120x is installable.  The x728v2/x728v1/x708/x729"
+            echo "                 variants are refused until per-board device tree overlays"
+            echo "                 ship — see 'Experimental board support' in the README."
             exit 0
             ;;
         *)
@@ -464,7 +478,9 @@ CONSERVATION_DEFAULT=0
 [ "${CHARGE_MODE_DEFAULT}" = "longlife" ] && CONSERVATION_DEFAULT=1
 BOARD_VARIANT="${OPT_BOARD:-x120x}"
 
-# Warn if experimental board selected
+# Warn if experimental board selected.  Currently unreachable — the
+# parser refuses non-x120x boards until per-board overlays ship — but
+# kept so the flow is ready when they do.
 if [ "${BOARD_VARIANT}" != "x120x" ]; then
     warn "Board variant ${BOARD_VARIANT} is EXPERIMENTAL and untested."
     warn "Validate correct operation before relying on this driver."
