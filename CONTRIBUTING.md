@@ -21,6 +21,26 @@ Use the issue templates:
 Security issues: do **not** open a public issue — see
 [SECURITY.md](SECURITY.md) for private reporting.
 
+## Setup
+
+Clone the repository and install the build dependencies (Debian /
+Raspberry Pi OS package names):
+
+```bash
+git clone https://github.com/mor-lock/x120x-dkms.git
+cd x120x-dkms
+
+sudo apt update
+sudo apt install build-essential linux-headers-$(uname -r) \
+                 device-tree-compiler shellcheck
+```
+
+`linux-headers-$(uname -r)` must match the running kernel — see the
+README's "Manual installation" section for the Raspberry Pi OS
+metapackage caveat.  `dkms` is only needed to install the driver for
+real use, not to build and test it.  The shell test suite needs
+nothing beyond bash and shellcheck, and never touches the system.
+
 ## Building
 
 The driver builds out-of-tree against your running kernel (6.3 or
