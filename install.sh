@@ -271,6 +271,7 @@ resolve_battery_settings() {
     # && form would make the function return 1 whenever the mode is
     # Fast, and under set -e that kills the caller silently.  Caught
     # by the v0.4.8 Phase-2 hardware validation.
+    CHARGE_MODE_DEFAULT="fast"
     if [ "${CONSERVATION_DEFAULT}" = "1" ]; then
         CHARGE_MODE_DEFAULT="longlife"
     fi

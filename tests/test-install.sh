@@ -263,6 +263,9 @@ run_rbs() {  # mah-flag mode-flag board-flag conf-file
         resolve_battery_settings "$4"
         echo "V=${INPUT_MAH}/${CONSERVATION_DEFAULT}/${BOARD_VARIANT}"
         echo "S=${MAH_SRC}|${CONS_SRC}|${BOARD_SRC}"
+        # set -u would abort here if the function left it unset (the
+        # summary at the end of install.sh reads it)
+        echo "M=${CHARGE_MODE_DEFAULT}"
     ) 2>&1
 }
 
@@ -270,6 +273,7 @@ CONF="${WORK}/x120x.conf"
 printf '# comment\noptions x120x battery_mah=20000 conservation_mode_default=1 board=x120x\n' > "${CONF}"
 out=$(run_rbs "" "" "" "${CONF}")
 assert "14 conf, no flags: all preserved"  'printf "%s" "'"$out"'" | grep -q "V=20000/1/x120x"'
+assert "14 conf, no flags: mode derived (longlife)" 'printf "%s" "'"$out"'" | grep -q "M=longlife"'
 assert "14 conf, no flags: sources say kept" '[ "$(printf "%s" "'"$out"'" | grep -c "kept from existing")" -ge 0 ] && printf "%s" "'"$out"'" | grep -q "S=kept from existing configuration|kept from existing configuration|kept from existing configuration"'
 
 out=$(run_rbs "6000" "" "" "${CONF}")
@@ -278,6 +282,7 @@ assert "14 one flag: mah source is the flag"    'printf "%s" "'"$out"'" | grep -
 
 out=$(run_rbs "" "" "" "${WORK}/no-such-conf")
 assert "14 no conf, no flags: defaults" 'printf "%s" "'"$out"'" | grep -q "V=1000/0/x120x"'
+assert "14 no conf: mode set in Fast (set -u summary read)" 'printf "%s" "'"$out"'" | grep -q "M=fast"'
 
 printf 'options x120x battery_mah=abc conservation_mode_default=1 board=x120x\n' > "${CONF}"
 out=$(run_rbs "" "" "" "${CONF}")
