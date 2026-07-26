@@ -57,7 +57,34 @@ dkms status
 
 You should see `x120x/0.4.7, <kernel-version>, aarch64: installed`.
 
-#### Step 4 — Compile the device tree overlay
+#### Step 4 — Write the battery configuration
+
+Tell the driver your pack capacity via modprobe options.  Without
+this file the driver computes charge and energy against its built-in
+1000 mAh default, and every capacity figure it reports is wrong.
+Set `battery_mah` to your pack's total capacity (number of cells ×
+per-cell mAh):
+
+```bash
+sudo tee /etc/modprobe.d/x120x.conf << 'EOF'
+# x120x driver configuration
+#
+# battery_mah     — total pack capacity in mAh
+#                   (number of cells × per-cell capacity)
+#
+# After editing, reload the driver:
+#   sudo rmmod x120x && sudo modprobe x120x
+# Or simply reboot.
+
+options x120x battery_mah=20000 conservation_mode_default=0 board=x120x
+EOF
+```
+
+`conservation_mode_default` selects the charge mode at load time
+(0 = Fast, 1 = Long Life); `board` stays `x120x` unless you are on
+the experimental manual path for another variant.
+
+#### Step 5 — Compile the device tree overlay
 
 The overlay tells the kernel how the board is wired (I²C address,
 GPIO assignments) so the driver can claim the hardware correctly.
@@ -66,7 +93,7 @@ GPIO assignments) so the driver can claim the hardware correctly.
 dtc -@ -I dts -O dtb -o x120x.dtbo x120x-overlay.dts
 ```
 
-#### Step 5 — Install the overlay
+#### Step 6 — Install the overlay
 
 ```bash
 # Raspberry Pi 5 (Raspberry Pi OS Bookworm):
@@ -76,7 +103,7 @@ sudo cp x120x.dtbo /boot/firmware/overlays/
 sudo cp x120x.dtbo /boot/overlays/
 ```
 
-#### Step 6 — Enable the overlay at boot
+#### Step 7 — Enable the overlay at boot
 
 Open the boot configuration file:
 
@@ -93,15 +120,20 @@ Add these lines at the end of the file:
 ```
 [all]
 dtoverlay=x120x
+gpio=6=pu
 ```
 
 The `[all]` section header ensures the overlay is applied on all Pi
 models.  Without it, any `[cm4]` or `[cm5]` conditional blocks earlier
 in the file will prevent the overlay from loading on a Pi 5.
+`gpio=6=pu` enables the boot-time pull-up on the AC-detect line —
+without it GPIO6 floats at boot and `ac_online` can read `0` with the
+charger present.  See [GPIO6 pull-up](../README.md#gpio6-pull-up) for
+the electrical details.
 
 Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X` in nano).
 
-#### Step 7 — Configure the bootloader (Raspberry Pi 5 only)
+#### Step 8 — Configure the bootloader (Raspberry Pi 5 only)
 
 On a Pi 5, set the two required bootloader EEPROM settings — see
 [Required bootloader settings (Raspberry Pi 5)](../README.md#required-bootloader-settings-raspberry-pi-5) in the README for what they do
@@ -118,11 +150,11 @@ rm -f "$conf"
 
 (Pi 4 and Pi 3 users skip this step.)
 
-#### Step 8 — Configure low-battery shutdown
+#### Step 9 — Configure low-battery shutdown
 
 The driver reports `capacity_level=Critical` when SoC drops below 5%.
-UPower escalates to `warning-level: action` at 2% SoC (the
-`PercentageAction` threshold the installer sets), which triggers a clean
+UPower escalates to `warning-level: action` at the `PercentageAction`
+threshold — set to 2% SoC in Step 10 — which triggers a clean
 OS shutdown via logind.  To enable this, create a drop-in file:
 
 ```bash
@@ -139,13 +171,49 @@ To disable this behaviour at any time, delete the file (or override
 
 The install script does this automatically.
 
-#### Step 9 — Reboot
+#### Step 10 — Configure UPower
+
+Append the same settings the installer applies to
+`/etc/UPower/UPower.conf` (UPower honours the last value of a key, so
+appending at the end of the file's single `[UPower]` section
+overrides the shipped defaults):
+
+```bash
+sudo tee -a /etc/UPower/UPower.conf << 'EOF'
+CriticalPowerAction=PowerOff
+UsePercentageForPolicy=true
+PercentageAction=2
+NoPollBatteries=true
+EOF
+```
+
+In one line each: `CriticalPowerAction=PowerOff` because the default
+HybridSleep hangs on a Raspberry Pi; `UsePercentageForPolicy=true`
+because a UPS HAT reports no time-to-empty estimate;
+`PercentageAction=2` because the shipped `0` would only act at 0% —
+no margin above the 3.20 V floor; `NoPollBatteries=true` because
+independent polling races the driver's uevents.  Full rationale in
+[systemd-logind shutdown](../README.md#systemd-logind-shutdown).
+
+#### Step 11 — Charge-mode persistence (optional)
+
+The installer also sets up a udev rule and helper
+(`/etc/udev/rules.d/90-x120x-persist.rules` and
+`/usr/local/lib/x120x-persist-mode.sh`) that write every
+`charge_type` change back to `/etc/modprobe.d/x120x.conf`, so a mode
+set via sysfs survives reboots.  This guide does not reproduce those
+two files.  Without them a `charge_type` write lasts only until the
+next reboot; the persistent way to select a mode on a manual install
+is `conservation_mode_default` in the Step 4 file (0 = Fast,
+1 = Long Life).
+
+#### Step 12 — Reboot
 
 ```bash
 sudo reboot
 ```
 
-#### Step 10 — Verify
+#### Step 13 — Verify
 
 After the reboot, check that everything is working:
 
@@ -177,3 +245,7 @@ The "taints kernel" message is normal for any out-of-tree module.
 
 `voltage_now` is reported in µV — divide by 1,000,000 for volts.
 A healthy fully charged cell reads approximately 4,150,000 (4.15 V).
+
+---
+
+This walkthrough now covers everything `install.sh` does.

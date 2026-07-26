@@ -295,7 +295,7 @@ manual path is:
    GPIO 13 for X728 V1.x / X708 (see the table above).
 2. Compile and install the overlay
    (see [Manual installation](docs/manual-install.md),
-   steps 4–6).
+   steps 5–7).
 3. Run the normal installation (`sudo bash install.sh --battery-mah …`),
    add `board=x728v2` (or your variant) to the `options x120x` line in
    `/etc/modprobe.d/x120x.conf`, and reboot.
@@ -867,6 +867,22 @@ later by editing `/etc/modprobe.d/x120x.conf` and rebooting.
 
 ---
 
+### Updating
+
+To update, fetch the new version and re-run the installer:
+
+```bash
+git pull   # or: download and extract the new release archive
+sudo bash install.sh
+sudo reboot
+```
+
+Settings from the previous install — pack capacity, charge mode, and
+board variant — are kept automatically; flags are only needed to
+change something.
+
+---
+
 ### Uninstallation
 
 To remove the driver and all changes made by the installer:
@@ -960,7 +976,7 @@ overlay compile, on every push and pull request.
 
 ## Verifying operation
 
-(These are the same checks as [Step 10 of the manual installation](docs/manual-install.md#step-10--verify),
+(These are the same checks as [Step 10 of the manual installation](docs/manual-install.md#step-13--verify),
 collected here for quick reference.)
 
 ```bash
