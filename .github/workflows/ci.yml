@@ -249,10 +249,16 @@ jobs:
           make -C "${RUNNER_TEMP}/rpi-linux" ARCH=arm64 \
             CROSS_COMPILE=aarch64-linux-gnu- -j"$(nproc)" modules_prepare
 
-      # Command-line variables propagate to the sub-make our Makefile
-      # spawns, so ARCH/CROSS_COMPILE reach the kernel build system.
-      - name: Compile module against ${{ env.RPI_BRANCH }} (-Werror)
+      # Compile-only (single-object kbuild target): modules_prepare
+      # produces no Module.symvers — that needs a full kernel build —
+      # so modpost would report every kernel-exported symbol as
+      # undefined.  The CC stage with -Werror is the divergence check
+      # this job exists for; full modpost already runs in the three
+      # Ubuntu-header build jobs, whose packaged headers ship
+      # Module.symvers.
+      - name: Compile against ${{ env.RPI_BRANCH }} (-Werror, compile-only)
         run: |
-          make KDIR="${RUNNER_TEMP}/rpi-linux" ARCH=arm64 \
-            CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS=-Werror
-          file src/x120x.ko
+          make -C "${RUNNER_TEMP}/rpi-linux" M="${GITHUB_WORKSPACE}/src" \
+            ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+            KCFLAGS=-Werror x120x.o
+          file "${GITHUB_WORKSPACE}/src/x120x.o"
