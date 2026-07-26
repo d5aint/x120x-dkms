@@ -2,7 +2,16 @@
 
 Release history of [x120x-dkms](README.md), newest first.
 
-### Unreleased
+### v0.4.8 — Update-safe install, uninstall --help, kernel floor, docs completion
+
+**CI**
+- New `check-versions` step: `tools/check-versions.sh` verifies the
+  version string agrees between `dkms.conf`, `install.sh`,
+  `src/x120x.c`, and every hardcoded ref in
+  `docs/manual-install.md` — previously enforced only by the
+  RELEASING.md checklist.  A missing version (refactored away) fails
+  rather than silently passing; CHANGELOG/README mentions are
+  historical records and deliberately out of scope.
 
 **Installer**
 - Re-running `install.sh` now preserves the existing configuration:
