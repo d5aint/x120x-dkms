@@ -56,6 +56,48 @@ set -euo pipefail
 # up even when no marker block exists.
 
 # -------------------------------------------------------------------------
+# Argument parsing — before any action, so a cautious user asking
+# "what will this remove?" gets an answer instead of an uninstall.
+# --help must work without root.
+# -------------------------------------------------------------------------
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --help|-h)
+            cat << 'USAGE_EOF'
+Usage: sudo bash uninstall.sh
+
+Removes the x120x-dkms driver and all changes made by install.sh.
+
+What this script removes:
+  - DKMS kernel module (all installed kernel versions)
+  - DKMS source tree from /usr/src/
+  - Device tree overlay from /boot/firmware/overlays/ (or /boot/overlays/)
+  - dtoverlay=x120x and gpio=6=pu lines from config.txt
+  - /etc/modprobe.d/x120x.conf
+  - Charge mode persistence script and udev rule
+  - The logind drop-in /etc/systemd/logind.conf.d/90-x120x.conf
+  - x120x-dkms marker blocks from UPower.conf and — on installs from
+    before the drop-in existed — from logind.conf, plus legacy bare
+    lines written by older installer versions
+
+What this script does NOT touch:
+  - The linux-headers and dkms packages (other software may need them)
+  - Bootloader EEPROM settings (POWER_OFF_ON_HALT, PSU_MAX_CURRENT)
+  - Any config.txt lines not added by the installer
+  - Lines in logind.conf / UPower.conf outside the marker blocks;
+    commented-out keys (e.g. #HandleLowBattery=ignore) are never
+    uncommented
+USAGE_EOF
+            exit 0
+            ;;
+        *)
+            die "Unknown option: $1  (use --help for usage)"
+            ;;
+    esac
+done
+
+# -------------------------------------------------------------------------
 # Configuration
 # -------------------------------------------------------------------------
 

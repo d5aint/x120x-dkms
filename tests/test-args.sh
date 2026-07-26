@@ -22,6 +22,7 @@ fi
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 INSTALL_SH="${HERE}/../install.sh"
+UNINSTALL_SH="${HERE}/../uninstall.sh"
 
 PASS=0; FAIL=0
 pass() { PASS=$((PASS + 1)); printf '  \033[0;32mPASS\033[0m %s\n' "$1"; }
@@ -88,6 +89,28 @@ for flag in --battery-mah --charge-mode --board --skip-eeprom; do
         fail "--help mentions ${flag}"
     fi
 done
+
+echo "uninstall.sh arguments"
+un_help=$(bash "${UNINSTALL_SH}" --help 2>&1); un_rc=$?
+if [ "${un_rc}" -eq 0 ]; then pass "--help exits 0 (unprivileged)"; else fail "--help exits 0 (rc=${un_rc})"; fi
+for want in "removes" "does NOT touch"; do
+    if printf '%s' "${un_help}" | grep -qF "${want}"; then
+        pass "--help mentions '${want}'"
+    else
+        fail "--help mentions '${want}'"
+    fi
+done
+un_bad=$(bash "${UNINSTALL_SH}" --frobnicate 2>&1); un_bad_rc=$?
+if [ "${un_bad_rc}" -ne 0 ] && printf '%s' "${un_bad}" | grep -qF "Unknown option: --frobnicate"; then
+    pass "unknown option rejected"
+else
+    fail "unknown option rejected  (rc=${un_bad_rc})"
+fi
+if printf '%s' "${un_bad}" | grep -qF "Step 1"; then
+    fail "unknown option performs no uninstall step"
+else
+    pass "unknown option performs no uninstall step"
+fi
 
 echo
 echo "Results: ${PASS} passed, ${FAIL} failed"

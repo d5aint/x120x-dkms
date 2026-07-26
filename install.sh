@@ -183,6 +183,34 @@ DROPIN_EOF
 }
 
 # -------------------------------------------------------------------------
+# Kernel floor
+#
+# The driver needs kernel 6.3+ (one-arg i2c .probe, the sys-off
+# handler framework, void i2c .remove — see the README).  Check up
+# front so an old image fails with the requirement and the fix,
+# instead of a screenful of DKMS compiler errors that the
+# troubleshooting section would misread as missing headers.  An
+# unparseable version string warns and continues — never block on a
+# weird uname.
+#
+# X120X_UNAME_R is overridable for testing (same safety rationale as
+# RPI_EEPROM_CONFIG above).
+# -------------------------------------------------------------------------
+
+check_kernel_floor() {
+    local kver="${X120X_UNAME_R:-$(uname -r)}" kmaj kmin
+    kmaj=$(printf '%s' "${kver}" | sed -n 's/^\([0-9]\{1,\}\)\..*/\1/p')
+    kmin=$(printf '%s' "${kver}" | sed -n 's/^[0-9]\{1,\}\.\([0-9]\{1,\}\).*/\1/p')
+    if [ -z "${kmaj}" ] || [ -z "${kmin}" ]; then
+        warn "Cannot parse kernel version '${kver}' — skipping the 6.3+ kernel check"
+        return 0
+    fi
+    if [ "${kmaj}" -lt 6 ] || { [ "${kmaj}" -eq 6 ] && [ "${kmin}" -lt 3 ]; }; then
+        die "Kernel ${kver} is too old — this driver needs kernel 6.3 or newer.  Run a fully-updated Raspberry Pi OS Bookworm or later (sudo apt update && sudo apt full-upgrade, then reboot) and try again."
+    fi
+}
+
+# -------------------------------------------------------------------------
 # Pi 5 bootloader EEPROM configuration
 #
 # POWER_OFF_ON_HALT=1 is required for the driver's core behaviour (clean
@@ -358,6 +386,7 @@ SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 # External command and device-tree model path — overridable for testing.
 # Safe: install.sh runs as root, and setting root's environment already
 # requires root, so these overrides grant no privilege a caller lacks.
+# X120X_UNAME_R (see check_kernel_floor) follows the same pattern.
 RPI_EEPROM_CONFIG="${RPI_EEPROM_CONFIG:-rpi-eeprom-config}"
 DT_MODEL_PATH="${DT_MODEL_PATH:-/proc/device-tree/model}"
 
@@ -377,6 +406,8 @@ fi
 # -------------------------------------------------------------------------
 
 require_root
+
+check_kernel_floor
 
 info "x120x-dkms ${PKG_VERSION} installer"
 info "Source: ${SRC_DIR}"

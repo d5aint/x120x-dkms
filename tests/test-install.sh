@@ -202,7 +202,31 @@ help_out=$(bash "${INSTALL_SH}" --help 2>&1); help_rc=$?
 assert "11 --help: exits 0"          '[ "'"$help_rc"'" -eq 0 ]'
 assert "11 --help: mentions --skip-eeprom" 'printf "%s" "'"$help_out"'" | grep -q -- "--skip-eeprom"'
 
-# 12 — install_dkms_tree: explicit allowlist copy into the DKMS tree.
+# 12 — check_kernel_floor: numeric 6.3+ comparison on X120X_UNAME_R,
+#      with warn-and-continue on an unparseable version string.
+echo "check_kernel_floor tests"
+KF_SRC=$(sed -n '/^check_kernel_floor() {/,/^}/p' "${INSTALL_SH}")
+[ -n "${KF_SRC}" ] || { echo "could not extract check_kernel_floor() from install.sh" >&2; exit 2; }
+run_kf() {  # kver -> rc; output on stdout
+    (
+        warn() { echo "warn:$*"; }
+        die()  { echo "die:$*"; exit 1; }
+        eval "${KF_SRC}"
+        X120X_UNAME_R="$1" check_kernel_floor
+    ) 2>&1
+}
+out=$(run_kf "6.1.21-v8+"); rc=$?
+assert "12 kernel 6.1 dies"              '[ "'"$rc"'" -ne 0 ]'
+assert "12 kernel 6.1 mentions 6.3"      'printf "%s" "'"$out"'" | grep -q "6.3"'
+out=$(run_kf "6.12.75+rpt-rpi-v8"); rc=$?
+assert "12 kernel 6.12 passes (numeric)" '[ "'"$rc"'" -eq 0 ]'
+out=$(run_kf "6.3.0"); rc=$?
+assert "12 kernel 6.3 passes"            '[ "'"$rc"'" -eq 0 ]'
+out=$(run_kf "weird-version"); rc=$?
+assert "12 garbage warns"                'printf "%s" "'"$out"'" | grep -q "warn:"'
+assert "12 garbage continues (rc 0)"     '[ "'"$rc"'" -eq 0 ]'
+
+# 13 — install_dkms_tree: explicit allowlist copy into the DKMS tree.
 #      Must copy exactly the five files DKMS needs, and must NOT drag
 #      .git, docs, or stray build artifacts from a developer tree.
 echo "install_dkms_tree tests"
@@ -217,13 +241,13 @@ printf 'x' > "${FIX}/src/x120x.o"; printf 'x' > "${FIX}/.git/HEAD"
 chmod 666 "${FIX}/src/x120x.c"
 
 install_dkms_tree "${FIX}" "${DST}"
-assert "12 five files copied, nothing else" \
+assert "13 five files copied, nothing else" \
     '[ "$(cd "${DST}" && find . -type f | LC_ALL=C sort | tr "\n" " ")" = "./LICENSE ./Makefile ./dkms.conf ./src/Kbuild ./src/x120x.c " ]'
-assert "12 .git not copied"        '[ ! -e "${DST}/.git" ]'
-assert "12 build artifact not copied" '[ ! -e "${DST}/src/x120x.o" ]'
-assert "12 go-w stripped"          '[ -z "$(find "${DST}" -perm /022)" ]'
+assert "13 .git not copied"        '[ ! -e "${DST}/.git" ]'
+assert "13 build artifact not copied" '[ ! -e "${DST}/src/x120x.o" ]'
+assert "13 go-w stripped"          '[ -z "$(find "${DST}" -perm /022)" ]'
 install_dkms_tree "${FIX}" "${DST}"
-assert "12 rerun replaces cleanly" '[ -f "${DST}/dkms.conf" ]'
+assert "13 rerun replaces cleanly" '[ -f "${DST}/dkms.conf" ]'
 
 echo
 echo "Results: ${PASS} passed, ${FAIL} failed"

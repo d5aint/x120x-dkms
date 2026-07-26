@@ -2,6 +2,29 @@
 
 Release history of [x120x-dkms](README.md), newest first.
 
+### Unreleased
+
+**Installer**
+- `uninstall.sh` now parses arguments: `--help` / `-h` prints what the
+  script removes and what it leaves alone (works without root), and an
+  unknown option aborts before any uninstall step.  Previously every
+  argument — including `--help` — was silently ignored and a full
+  uninstall proceeded; the cautious user asking "what will this
+  remove?" was the one who got bitten.
+- `install.sh` pre-flight now checks the running kernel against the
+  6.3 floor (numeric major.minor comparison, `X120X_UNAME_R`
+  overridable for tests) and fails with the requirement and the fix —
+  a fully-updated Raspberry Pi OS Bookworm or later — instead of a
+  screenful of DKMS compiler errors on old images.  An unparseable
+  version string warns and continues.
+
+**Documentation**
+- Getting started and the `ac_online` troubleshooting entry now state
+  that the power supply connects to the UPS board's own power input,
+  not the Pi's USB-C port — a charger feeding the Pi directly keeps
+  the Pi running but never charges the battery or asserts AC
+  detection.
+
 ### v0.4.7 — Review fixes, logind drop-in, docs restructure, CI expansion
 
 **Driver**

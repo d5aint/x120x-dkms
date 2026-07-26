@@ -33,6 +33,11 @@ match.  (For maintainers: the 6.3 floor comes from the driver's use of
 the modern one-arg i2c `.probe`, the sys-off handler framework, and the
 `void` i2c `.remove`.)
 
+Hardware assembly — battery orientation, seating the HAT on the Pi —
+is covered by your board's page on the
+[Geekworm wiki](https://wiki.geekworm.com/); this guide starts where
+assembly ends.
+
 ### 1. Install the driver
 
 Clone the repository:
@@ -41,6 +46,10 @@ Clone the repository:
 git clone https://github.com/mor-lock/x120x-dkms.git
 cd x120x-dkms
 ```
+
+(No git?  Download and extract the
+[latest release archive](https://github.com/mor-lock/x120x-dkms/releases/latest)
+instead, and run the same commands from the extracted directory.)
 
 Now run the install command for your board — it sets the battery pack
 capacity for you.  Copy-paste the one that matches:
@@ -76,6 +85,13 @@ right for almost every UPS install.  A battery-preserving **Long Life**
 mode can be enabled at any time after install — see *Battery
 conservation mode*.
 
+Before rebooting, make sure the power supply is connected to the
+**UPS board's own power input**, not the Pi's USB-C port.  The Pi is
+powered through the UPS; a charger plugged into the Pi directly will
+neither charge the battery nor assert AC detection.  Your board's
+page on the [Geekworm wiki](https://wiki.geekworm.com/) shows the
+input's location.
+
 Then reboot:
 
 ```bash
@@ -89,23 +105,22 @@ Pi 5)* below for what they do and the `--skip-eeprom` opt-out.
 
 ### 2. Monitor battery state
 
-After the reboot, a battery icon appears in the desktop taskbar and the
-battery shows up as a standard Linux power supply.  The easiest way to
-see full details is `gnome-power-statistics`:
+After the reboot, the battery shows up as a standard Linux power
+supply.  For a quick command-line view (works on every install,
+including Lite/headless):
+
+```bash
+upower -i /org/freedesktop/UPower/devices/battery_x120x_battery
+```
+
+On desktop installs a battery icon also appears in the taskbar, and
+`gnome-power-statistics` shows live battery percentage, voltage,
+energy, charge rate, and history graphs — all read directly from the
+driver via UPower.  No configuration needed:
 
 ```bash
 sudo apt install gnome-power-manager
 gnome-power-statistics
-```
-
-This shows live battery percentage, voltage, energy, charge rate,
-and history graphs — all read directly from the driver via UPower.
-No configuration needed.
-
-For a quick command-line view:
-
-```bash
-upower -i /org/freedesktop/UPower/devices/battery_x120x_battery
 ```
 
 That is all that is needed for a fully working installation.  The
@@ -173,7 +188,12 @@ detection* and the deep-discharge recovery notes.
 
 ### ac_online is 0 with the charger plugged in
 
-This is almost always the GPIO6 AC-detect line floating at boot — see
+First check the cheapest thing: the charger must be plugged into the
+UPS board's own power input, not the Pi's USB-C port.  A supply
+feeding the Pi directly keeps the Pi running but never charges the
+battery or asserts AC detection.
+
+Otherwise this is almost always the GPIO6 AC-detect line floating at boot — see
 [GPIO6 pull-up](#gpio6-pull-up).  If the charger LED is lit and `ac_online` stays `0`
 across reboots (with `gpio=6=pu` in `config.txt`), suspect a failed
 board — see [Incident 2](docs/incidents.md#incident-2--grid-return-undetected-recovery-livelock-2026-03-29) for the field-failure signature.
