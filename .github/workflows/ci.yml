@@ -206,8 +206,11 @@ jobs:
       - name: Fetch checkpatch.pl (${{ env.KERNEL_TAG }})
         run: |
           base="https://raw.githubusercontent.com/torvalds/linux/${KERNEL_TAG}/scripts"
+          # --retry rides out transient raw.githubusercontent errors
+          # (one observed 4xx flake failed the job on 2026-07-26).
           for f in checkpatch.pl spelling.txt const_structs.checkpatch; do
-            curl -sf "${base}/${f}" -o "${RUNNER_TEMP}/${f}"
+            curl -sf --retry 3 --retry-delay 2 --retry-all-errors \
+              "${base}/${f}" -o "${RUNNER_TEMP}/${f}"
           done
 
       - name: checkpatch (--no-tree, documented ignores)
