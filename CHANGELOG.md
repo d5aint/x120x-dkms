@@ -44,6 +44,11 @@ Release history of [x120x-dkms](README.md), newest first.
   pre-drop-in system automatically (the old marker block and any
   pre-marker bare lines are removed from `logind.conf`).  UPower has
   no drop-in mechanism, so `UPower.conf` keeps the marker block.
+- The DKMS tree copy is now an explicit allowlist (`dkms.conf`,
+  `Makefile`, `LICENSE`, `src/x120x.c`, `src/Kbuild`) instead of
+  `cp -r` of the whole checkout, which dragged `.git` and the
+  documentation into `/usr/src` on every install and could pick up
+  stray build artifacts from a developer tree.
 - `install_ini_block` no longer accumulates a leading blank line before
   its marker block on reinstall — a repeat install is now byte-identical.
 - `--charge-mode` and `--board` with a missing value now die with a

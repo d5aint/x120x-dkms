@@ -202,6 +202,29 @@ help_out=$(bash "${INSTALL_SH}" --help 2>&1); help_rc=$?
 assert "11 --help: exits 0"          '[ "'"$help_rc"'" -eq 0 ]'
 assert "11 --help: mentions --skip-eeprom" 'printf "%s" "'"$help_out"'" | grep -q -- "--skip-eeprom"'
 
+# 12 — install_dkms_tree: explicit allowlist copy into the DKMS tree.
+#      Must copy exactly the five files DKMS needs, and must NOT drag
+#      .git, docs, or stray build artifacts from a developer tree.
+echo "install_dkms_tree tests"
+eval "$(sed -n '/^install_dkms_tree() {/,/^}/p' "${INSTALL_SH}")"
+
+FIX="${WORK}/checkout"; DST="${WORK}/dkms-tree"
+mkdir -p "${FIX}/src" "${FIX}/.git" "${FIX}/docs"
+printf 'x' > "${FIX}/dkms.conf";   printf 'x' > "${FIX}/Makefile"
+printf 'x' > "${FIX}/LICENSE";     printf 'x' > "${FIX}/README.md"
+printf 'x' > "${FIX}/src/x120x.c"; printf 'x' > "${FIX}/src/Kbuild"
+printf 'x' > "${FIX}/src/x120x.o"; printf 'x' > "${FIX}/.git/HEAD"
+chmod 666 "${FIX}/src/x120x.c"
+
+install_dkms_tree "${FIX}" "${DST}"
+assert "12 five files copied, nothing else" \
+    '[ "$(cd "${DST}" && find . -type f | LC_ALL=C sort | tr "\n" " ")" = "./LICENSE ./Makefile ./dkms.conf ./src/Kbuild ./src/x120x.c " ]'
+assert "12 .git not copied"        '[ ! -e "${DST}/.git" ]'
+assert "12 build artifact not copied" '[ ! -e "${DST}/src/x120x.o" ]'
+assert "12 go-w stripped"          '[ -z "$(find "${DST}" -perm /022)" ]'
+install_dkms_tree "${FIX}" "${DST}"
+assert "12 rerun replaces cleanly" '[ -f "${DST}/dkms.conf" ]'
+
 echo
 echo "Results: ${PASS} passed, ${FAIL} failed"
 [ "${FAIL}" -eq 0 ]

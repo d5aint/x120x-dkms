@@ -139,6 +139,33 @@ install_ini_block() {
 # Usage: install_logind_dropin FILE
 # -------------------------------------------------------------------------
 
+# -------------------------------------------------------------------------
+# DKMS tree copy
+#
+# Copy exactly what DKMS needs to build the module: dkms.conf, the
+# Makefile it invokes, the two files under src/, and LICENSE for
+# provenance.  An explicit allowlist rather than `cp -r` of the whole
+# checkout, which dragged `.git` and the documentation into /usr/src
+# on every install and would also pick up stray build artifacts from
+# a developer tree.
+#
+# Usage: install_dkms_tree SRC_DIR DEST
+# -------------------------------------------------------------------------
+
+install_dkms_tree() {
+    local src="$1" dst="$2"
+
+    rm -rf "${dst}"
+    install -d "${dst}/src"
+    cp "${src}/dkms.conf" "${src}/Makefile" "${src}/LICENSE" "${dst}/"
+    cp "${src}/src/x120x.c" "${src}/src/Kbuild" "${dst}/src/"
+    # Root builds from this tree, so strip any group/other-writable
+    # bits inherited from the user's checkout — a non-root user must
+    # not be able to alter sources that are then compiled and
+    # installed as root.
+    chmod -R go-w "${dst}"
+}
+
 install_logind_dropin() {
     local file="$1"
     mkdir -p "$(dirname "${file}")"
@@ -379,12 +406,7 @@ ok "Dependencies installed"
 DKMS_SRC="/usr/src/${PKG_NAME}-${PKG_VERSION}"
 
 info "Step 2/10 — Copying source to DKMS tree (${DKMS_SRC})..."
-rm -rf "${DKMS_SRC}"
-cp -r "${SRC_DIR}" "${DKMS_SRC}"
-# Root builds from this tree, so strip any group/other-writable bits
-# inherited from the user's checkout — a non-root user must not be able
-# to alter sources that are then compiled and installed as root.
-chmod -R go-w "${DKMS_SRC}"
+install_dkms_tree "${SRC_DIR}" "${DKMS_SRC}"
 ok "Source copied"
 
 # -------------------------------------------------------------------------

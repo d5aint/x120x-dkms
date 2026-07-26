@@ -918,8 +918,14 @@ to compile the module.
 
 DKMS expects the source under `/usr/src/<name>-<version>/`:
 
+Copy exactly what DKMS needs — `dkms.conf`, the `Makefile`, and
+`src/` (avoid `cp -r .`, which would drag `.git` and the
+documentation along):
+
 ```bash
-sudo cp -r . /usr/src/x120x-0.4.7
+sudo install -d /usr/src/x120x-0.4.7/src
+sudo cp dkms.conf Makefile LICENSE /usr/src/x120x-0.4.7/
+sudo cp src/x120x.c src/Kbuild /usr/src/x120x-0.4.7/src/
 ```
 
 #### Step 3 — Build and install the kernel module
