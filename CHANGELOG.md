@@ -85,6 +85,15 @@ Release history of [x120x-dkms](README.md), newest first.
   users).  New `overlay` job compiles `x120x-overlay.dts` with `dtc`.
 - New `static` job runs `make W=1` (kernel extra-warnings and kernel-doc,
   any warning fails) and `sparse` (`make C=1`) over the driver.
+- New `checkpatch` job runs `checkpatch.pl --no-tree` (fetched pinned
+  to a kernel tag from kernel.org) over `src/x120x.c`, with three
+  documented house-style ignores (`BLOCK_COMMENT_STYLE`,
+  `SPLIT_STRING`, `DEEP_INDENTATION`) to drop before an upstream
+  submission.  The three findings outside those classes were fixed:
+  a `static ... = 0` initialiser and two missing blank lines after
+  declarations — no behaviour change.
+- New `binding` job validates `suptronics,x120x.yaml` against the
+  dtschema meta-schema with `dt-doc-validate`.
 - Shell job now also verifies every README in-page anchor link resolves
   to a heading (GitHub slug rules), next to the repository-layout tree
   check.

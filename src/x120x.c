@@ -203,7 +203,7 @@ MODULE_PARM_DESC(conservation_end,
  * persisted to /etc/modprobe.d/x120x.conf by a udev rule installed
  * by the installer.
  */
-static int conservation_mode_default = 0;
+static int conservation_mode_default;
 module_param(conservation_mode_default, int, 0444);
 MODULE_PARM_DESC(conservation_mode_default,
 	"Start in Long Life mode (1) or Fast mode (0, default). "
@@ -713,6 +713,7 @@ static void x120x_poll_work(struct work_struct *work)
 				chip->dead_cand_uv       = new_uv;
 			} else {
 				s64 window = now_us - chip->dead_cand_start_us;
+
 				if (window >= X120X_DEAD_BAT_CONFIRM_US) {
 					s64 delta_uv = (s64)new_uv - chip->dead_cand_uv;
 					s64 window_s = div_s64(window, USEC_PER_SEC);
@@ -919,6 +920,7 @@ static int x120x_battery_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS: {
 		bool chrg_inhibited = conservation_mode && charger_inhibited;
+
 		if (!present)
 			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 		else if (!ac_online)

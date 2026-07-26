@@ -165,3 +165,48 @@ jobs:
           KDIR=$(ls -d /lib/modules/*/build | sort -V | tail -1)
           make KDIR="$KDIR" C=1 2>&1 | tee sparse.log
           if grep -qE 'x120x\.c.*(warning|error)' sparse.log; then echo "sparse findings"; exit 1; fi
+
+  # Validate the DT binding schema — the one artifact aimed squarely at
+  # upstreaming.  dt-doc-validate checks the binding against dtschema's
+  # meta-schema.  It prints an informational note that the $id path does
+  # not match the file's location (the binding lives at the repo root,
+  # not at its eventual Documentation/devicetree/bindings/ path); that
+  # note does not fail the check.
+  binding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install dtschema
+        run: pip3 install dtschema
+
+      - name: Validate binding (dt-doc-validate)
+        run: dt-doc-validate suptronics,x120x.yaml
+
+  # Kernel style check.  checkpatch.pl is fetched pinned to a kernel tag
+  # from kernel.org — no kernel tree checkout needed (--no-tree).  Three
+  # message types are ignored as accepted house style; remove them from
+  # the ignore list (and sweep the file) when preparing the upstream
+  # submission:
+  #   BLOCK_COMMENT_STYLE — the /* ---- banner ---- */ section comments
+  #   SPLIT_STRING        — user-visible strings split for 80 columns
+  #   DEEP_INDENTATION    — dead-battery state machine nesting
+  checkpatch:
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_TAG: v6.12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch checkpatch.pl (${{ env.KERNEL_TAG }})
+        run: |
+          base="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/scripts"
+          for f in checkpatch.pl spelling.txt const_structs.checkpatch; do
+            curl -sf "${base}/${f}?h=${KERNEL_TAG}" -o "${RUNNER_TEMP}/${f}"
+          done
+
+      - name: checkpatch (--no-tree, documented ignores)
+        run: |
+          perl "${RUNNER_TEMP}/checkpatch.pl" --no-tree \
+            --ignore BLOCK_COMMENT_STYLE,SPLIT_STRING,DEEP_INDENTATION \
+            -f src/x120x.c
