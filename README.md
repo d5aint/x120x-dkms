@@ -1,7 +1,7 @@
 # x120x-dkms — SupTronics UPS HAT kernel driver
 
 [![CI](https://github.com/mor-lock/x120x-dkms/actions/workflows/ci.yml/badge.svg)](https://github.com/mor-lock/x120x-dkms/actions/workflows/ci.yml)
-[![License: GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue.svg)](LICENSE)
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/License-GPL--2.0--or--later-blue.svg)](LICENSE)
 
 A DKMS kernel driver for SupTronics UPS HAT boards on Raspberry Pi,
 distributed by Geekworm.  Covers the X120x series and experimentally

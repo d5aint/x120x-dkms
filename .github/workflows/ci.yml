@@ -184,7 +184,8 @@ jobs:
         run: dt-doc-validate suptronics,x120x.yaml
 
   # Kernel style check.  checkpatch.pl is fetched pinned to a kernel tag
-  # from kernel.org — no kernel tree checkout needed (--no-tree).  Three
+  # from GitHub's mirror of torvalds/linux — no kernel tree checkout
+  # needed (--no-tree).  Three
   # message types are ignored as accepted house style; remove them from
   # the ignore list (and sweep the file) when preparing the upstream
   # submission:

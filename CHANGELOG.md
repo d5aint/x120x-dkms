@@ -44,6 +44,10 @@ Release history of [x120x-dkms](README.md), newest first.
   pre-drop-in system automatically (the old marker block and any
   pre-marker bare lines are removed from `logind.conf`).  UPower has
   no drop-in mechanism, so `UPower.conf` keeps the marker block.
+- `uninstall.sh` now `systemctl try-restart`s systemd-logind after
+  removing the drop-in (or, on pre-drop-in systems, the marker block
+  from `logind.conf`), so the removed `HandleLowBattery` setting
+  stops applying immediately instead of at the next reboot.
 - The DKMS tree copy is now an explicit allowlist (`dkms.conf`,
   `Makefile`, `LICENSE`, `src/x120x.c`, `src/Kbuild`) instead of
   `cp -r` of the whole checkout, which dragged `.git` and the
@@ -96,7 +100,8 @@ Release history of [x120x-dkms](README.md), newest first.
 - New `static` job runs `make W=1` (kernel extra-warnings and kernel-doc,
   any warning fails) and `sparse` (`make C=1`) over the driver.
 - New `checkpatch` job runs `checkpatch.pl --no-tree` (fetched pinned
-  to a kernel tag from kernel.org) over `src/x120x.c`, with three
+  to a kernel tag from GitHub's mirror of torvalds/linux) over
+  `src/x120x.c`, with three
   documented house-style ignores (`BLOCK_COMMENT_STYLE`,
   `SPLIT_STRING`, `DEEP_INDENTATION`) to drop before an upstream
   submission.  The three findings outside those classes were fixed:

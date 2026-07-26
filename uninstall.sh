@@ -214,6 +214,7 @@ LOGIND_DROPIN="${LOGIND_DROPIN:-/etc/systemd/logind.conf.d/90-x120x.conf}"
 if [ -f "${LOGIND_DROPIN}" ]; then
     rm -f "${LOGIND_DROPIN}"
     rmdir --ignore-fail-on-non-empty "$(dirname "${LOGIND_DROPIN}")" 2>/dev/null || true
+    systemctl try-restart systemd-logind 2>/dev/null || true
     ok "Removed ${LOGIND_DROPIN}"
 else
     ok "logind drop-in not found (already removed)"
@@ -231,6 +232,7 @@ if [ -f "${LOGIND_CONF}" ]; then
     # install.sh too, so the patterns stay in one place.
     clean_legacy_logind "${LOGIND_CONF}"
 
+    systemctl try-restart systemd-logind 2>/dev/null || true
     ok "Restored ${LOGIND_CONF}"
 else
     ok "logind.conf not found — skipping"

@@ -127,19 +127,6 @@ install_ini_block() {
 # pre-marker installer gets its bare legacy lines removed either way.
 
 # -------------------------------------------------------------------------
-# logind drop-in
-#
-# Low-battery shutdown is configured through a drop-in file under
-# /etc/systemd/logind.conf.d/ instead of editing logind.conf: the
-# packaged file stays pristine (dpkg never sees it as modified, so no
-# conffile prompt on systemd upgrades), every line in the drop-in is
-# ours, and uninstall is a plain rm.  UPower has no drop-in mechanism,
-# so UPower.conf keeps the marker-block approach above.
-#
-# Usage: install_logind_dropin FILE
-# -------------------------------------------------------------------------
-
-# -------------------------------------------------------------------------
 # DKMS tree copy
 #
 # Copy exactly what DKMS needs to build the module: dkms.conf, the
@@ -165,6 +152,19 @@ install_dkms_tree() {
     # installed as root.
     chmod -R go-w "${dst}"
 }
+
+# -------------------------------------------------------------------------
+# logind drop-in
+#
+# Low-battery shutdown is configured through a drop-in file under
+# /etc/systemd/logind.conf.d/ instead of editing logind.conf: the
+# packaged file stays pristine (dpkg never sees it as modified, so no
+# conffile prompt on systemd upgrades), every line in the drop-in is
+# ours, and uninstall is a plain rm.  UPower has no drop-in mechanism,
+# so UPower.conf keeps the marker-block approach above.
+#
+# Usage: install_logind_dropin FILE
+# -------------------------------------------------------------------------
 
 install_logind_dropin() {
     local file="$1"
