@@ -35,9 +35,9 @@ sudo apt install build-essential linux-headers-$(uname -r) \
                  device-tree-compiler shellcheck
 ```
 
-`linux-headers-$(uname -r)` must match the running kernel — see the
-README's "Manual installation" section for the Raspberry Pi OS
-metapackage caveat.  `dkms` is only needed to install the driver for
+`linux-headers-$(uname -r)` must match the running kernel — see
+[docs/manual-install.md](docs/manual-install.md) for the Raspberry
+Pi OS metapackage caveat.  `dkms` is only needed to install the driver for
 real use, not to build and test it.  The shell test suite needs
 nothing beyond bash and shellcheck, and never touches the system.
 
@@ -52,8 +52,9 @@ make clean
 ```
 
 Dependencies and the full manual build (overlay, DKMS registration,
-bootloader config) are documented step by step in the README's
-"Manual installation" section.  The device tree overlay compiles with:
+bootloader config) are documented step by step in
+[docs/manual-install.md](docs/manual-install.md).  The device tree
+overlay compiles with:
 
 ```bash
 dtc -@ -I dts -O dtb -o x120x.dtbo x120x-overlay.dts

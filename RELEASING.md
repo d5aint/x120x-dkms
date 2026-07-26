@@ -67,7 +67,7 @@ it verbatim.  Save all Phase 0–4 captures under
 
 - Bump `PKG_VERSION` (install.sh), `PACKAGE_VERSION` (dkms.conf),
   `MODULE_VERSION` (src/x120x.c), and the manual-install version refs
-  together; finalize the `CHANGELOG.md` entry.
+  (docs/manual-install.md) together; finalize the `CHANGELOG.md` entry.
 - Update the maintainer row in README's "Tested hardware" table to the
   version just validated (only after Phase 4 has passed).
 - Commit, push, confirm CI green on `main`.

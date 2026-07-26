@@ -24,6 +24,12 @@ Release history of [x120x-dkms](README.md), newest first.
   not the Pi's USB-C port — a charger feeding the Pi directly keeps
   the Pi running but never charges the battery or asserts AC
   detection.
+- Second README split: the manual-installation walkthrough moved to
+  [docs/manual-install.md](docs/manual-install.md) and the
+  GPIO-scripts migration guide to [docs/migration.md](docs/migration.md)
+  (verbatim, one-time-audience material; ~250 lines).  The README
+  headings remain as pointer stubs so existing deep links keep
+  resolving.
 
 ### v0.4.7 — Review fixes, logind drop-in, docs restructure, CI expansion
 
