@@ -25,23 +25,14 @@
 set -euo pipefail
 
 # -------------------------------------------------------------------------
-# Helpers
+# Shared helpers — output, require_root, INI marker constants, legacy
+# cleanup.  lib/common.sh is the single source of truth for the contract
+# install.sh and uninstall.sh must agree on.
 # -------------------------------------------------------------------------
 
-RED='\033[0;31m'
-GRN='\033[0;32m'
-YLW='\033[1;33m'
-BLD='\033[1m'
-RST='\033[0m'
-
-info()  { echo -e "${BLD}[x120x]${RST} $*"; }
-ok()    { echo -e "${GRN}[x120x]${RST} $*"; }
-warn()  { echo -e "${YLW}[x120x] WARNING:${RST} $*"; }
-die()   { echo -e "${RED}[x120x] ERROR:${RST} $*" >&2; exit 1; }
-
-require_root() {
-    [ "$(id -u)" -eq 0 ] || die "This script must be run with sudo: sudo bash install.sh"
-}
+# shellcheck source=lib/common.sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/common.sh" \
+    || { echo "[x120x] ERROR: cannot load lib/common.sh — run from a full checkout" >&2; exit 1; }
 
 # -------------------------------------------------------------------------
 # Temp-file cleanup
@@ -79,10 +70,10 @@ trap _x120x_cleanup EXIT
 #   SECTION  — section name without brackets (e.g. "Login")
 #   TAG      — short identifier used in the marker comment
 #   LINE...  — one or more lines to write inside the block
+#
+# The marker prefix constants come from lib/common.sh, shared with
+# remove_ini_block in uninstall.sh.
 # -------------------------------------------------------------------------
-
-X120X_MARKER_BEGIN_PREFIX="# >>> x120x-dkms:"
-X120X_MARKER_END_PREFIX="# <<< x120x-dkms:"
 
 install_ini_block() {
     local file="$1" section="$2" tag="$3"
@@ -131,45 +122,9 @@ install_ini_block() {
     } >> "${file}"
 }
 
-# -------------------------------------------------------------------------
-# Legacy cleanup helpers
-#
-# Older versions of install.sh wrote bare lines (no markers) into
-# logind.conf and UPower.conf, and commented out any pre-existing
-# HandleLowBattery= / CriticalPowerAction= / NoPollBatteries= line
-# alongside.  A system that's been through an old install will still
-# have those lines sitting around even after the new installer writes
-# its marker block; without explicit cleanup they accumulate forever.
-#
-# These functions remove the exact strings the old installer emitted.
-# Each pattern matches a single specific line — we never uncomment
-# anything, because the old installer commented blindly and a user
-# who had deliberately written `#HandleLowBattery=ignore` would be
-# surprised by silent reactivation.
-#
-# The same cleanup is called from uninstall.sh; keeping it in a
-# helper documents the contract that install.sh and uninstall.sh must
-# agree on which lines belonged to the legacy installer.
-# -------------------------------------------------------------------------
-
-clean_legacy_logind() {
-    local file="${1:-/etc/systemd/logind.conf}"
-    [ -f "${file}" ] || return 0
-    sed -i '/^# Added by x120x-dkms installer.*$/d'        "${file}"
-    sed -i '/^# capacity_level=Critical.*$/d'              "${file}"
-    sed -i '/^# To disable: set HandleLowBattery.*$/d'     "${file}"
-    sed -i '/^HandleLowBattery=poweroff$/d'                "${file}"
-}
-
-clean_legacy_upower() {
-    local file="${1:-/etc/UPower/UPower.conf}"
-    [ -f "${file}" ] || return 0
-    sed -i '/^# Added by x120x-dkms installer.*$/d'        "${file}"
-    sed -i '/^# HybridSleep hangs on Raspberry Pi.*$/d'    "${file}"
-    sed -i '/^CriticalPowerAction=PowerOff$/d'             "${file}"
-    sed -i '/^# driver sends uevents.*$/d'                 "${file}"
-    sed -i '/^NoPollBatteries=true$/d'                     "${file}"
-}
+# clean_legacy_logind / clean_legacy_upower (lib/common.sh) are called
+# before each marker block is written, so a system that went through a
+# pre-marker installer gets its bare legacy lines removed either way.
 
 # -------------------------------------------------------------------------
 # Pi 5 bootloader EEPROM configuration

@@ -20,6 +20,7 @@ fi
 HERE=$(cd "$(dirname "$0")" && pwd)
 INSTALL_SH="${HERE}/../install.sh"
 UNINSTALL_SH="${HERE}/../uninstall.sh"
+COMMON_SH="${HERE}/../lib/common.sh"
 
 WORK=$(mktemp -d)
 trap 'rm -rf -- "${WORK}"' EXIT
@@ -29,11 +30,11 @@ info() { :; }; ok() { :; }; warn() { :; }; die() { echo "die:$*" >&2; return 1; 
 
 # Extract the marker vars + functions under test.  Each closing brace is
 # the first column-0 "}" after its opener, which the sed ranges rely on.
-eval "$(sed -n '/^X120X_MARKER_BEGIN_PREFIX=/,/^X120X_MARKER_END_PREFIX=/p' "${INSTALL_SH}")"
+eval "$(sed -n '/^X120X_MARKER_BEGIN_PREFIX=/,/^X120X_MARKER_END_PREFIX=/p' "${COMMON_SH}")"
 eval "$(sed -n '/^install_ini_block() {/,/^}/p'  "${INSTALL_SH}")"
 eval "$(sed -n '/^remove_ini_block() {/,/^}/p'    "${UNINSTALL_SH}")"
-eval "$(sed -n '/^clean_legacy_logind() {/,/^}/p' "${UNINSTALL_SH}")"
-eval "$(sed -n '/^clean_legacy_upower() {/,/^}/p' "${UNINSTALL_SH}")"
+eval "$(sed -n '/^clean_legacy_logind() {/,/^}/p' "${COMMON_SH}")"
+eval "$(sed -n '/^clean_legacy_upower() {/,/^}/p' "${COMMON_SH}")"
 # The exact [all]-orphan perl program (extracted, not copied, to avoid drift).
 PERL_ALL=$(sed -n "s/^[[:space:]]*perl -i -0pe '\([^']*\)'.*/\1/p" "${UNINSTALL_SH}")
 [ -n "${PERL_ALL}" ] || { echo "could not extract [all] perl from uninstall.sh" >&2; exit 2; }

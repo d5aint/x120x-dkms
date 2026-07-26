@@ -1161,6 +1161,8 @@ x120x-dkms/
 ├── dkms.conf                 — DKMS package definition
 ├── install.sh                — installer (see Installation)
 ├── uninstall.sh              — uninstaller (see Uninstallation)
+├── lib/
+│   └── common.sh             — helpers shared by install.sh/uninstall.sh
 ├── x120x-overlay.dts         — device tree overlay source
 ├── suptronics,x120x.yaml     — DT binding schema (upstreaming)
 ├── src/

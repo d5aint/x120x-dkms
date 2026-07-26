@@ -36,23 +36,14 @@
 set -euo pipefail
 
 # -------------------------------------------------------------------------
-# Helpers
+# Shared helpers — output, require_root, INI marker constants, legacy
+# cleanup.  lib/common.sh is the single source of truth for the contract
+# install.sh and uninstall.sh must agree on.
 # -------------------------------------------------------------------------
 
-RED='\033[0;31m'
-GRN='\033[0;32m'
-YLW='\033[1;33m'
-BLD='\033[1m'
-RST='\033[0m'
-
-info()  { echo -e "${BLD}[x120x]${RST} $*"; }
-ok()    { echo -e "${GRN}[x120x]${RST} $*"; }
-warn()  { echo -e "${YLW}[x120x] WARNING:${RST} $*"; }
-die()   { echo -e "${RED}[x120x] ERROR:${RST} $*" >&2; exit 1; }
-
-require_root() {
-    [ "$(id -u)" -eq 0 ] || die "This script must be run with sudo: sudo bash uninstall.sh"
-}
+# shellcheck source=lib/common.sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/common.sh" \
+    || { echo "[x120x] ERROR: cannot load lib/common.sh — run from a full checkout" >&2; exit 1; }
 
 # -------------------------------------------------------------------------
 # INI block removal helper
@@ -60,10 +51,10 @@ require_root() {
 # Delete a marker-wrapped block written by install_ini_block in install.sh.
 # Lines outside the markers are never touched, so users who set their own
 # values are left alone.
+#
+# The marker prefix constants come from lib/common.sh, shared with
+# install_ini_block in install.sh.
 # -------------------------------------------------------------------------
-
-X120X_MARKER_BEGIN_PREFIX="# >>> x120x-dkms:"
-X120X_MARKER_END_PREFIX="# <<< x120x-dkms:"
 
 remove_ini_block() {
     local file="$1" tag="$2"
@@ -87,39 +78,9 @@ remove_ini_block() {
     sed -i -e '${/^$/d}' "${file}" 2>/dev/null || true
 }
 
-# -------------------------------------------------------------------------
-# Legacy cleanup helpers
-#
-# Older versions of install.sh wrote bare lines (no markers) into
-# logind.conf and UPower.conf.  These helpers remove the exact strings
-# the old installer emitted.  Kept symmetric with install.sh, which
-# calls the same helpers before writing its marker block so a system
-# that's been through an old install gets cleaned up either way.
-#
-# We deliberately do NOT uncomment any line.  The old installer
-# commented blindly without recording which lines were originally
-# uncommented, so silently uncommenting a user's deliberate
-# `#HandleLowBattery=ignore` would be surprising.
-# -------------------------------------------------------------------------
-
-clean_legacy_logind() {
-    local file="${1:-/etc/systemd/logind.conf}"
-    [ -f "${file}" ] || return 0
-    sed -i '/^# Added by x120x-dkms installer.*$/d'        "${file}"
-    sed -i '/^# capacity_level=Critical.*$/d'              "${file}"
-    sed -i '/^# To disable: set HandleLowBattery.*$/d'     "${file}"
-    sed -i '/^HandleLowBattery=poweroff$/d'                "${file}"
-}
-
-clean_legacy_upower() {
-    local file="${1:-/etc/UPower/UPower.conf}"
-    [ -f "${file}" ] || return 0
-    sed -i '/^# Added by x120x-dkms installer.*$/d'        "${file}"
-    sed -i '/^# HybridSleep hangs on Raspberry Pi.*$/d'    "${file}"
-    sed -i '/^CriticalPowerAction=PowerOff$/d'             "${file}"
-    sed -i '/^# driver sends uevents.*$/d'                 "${file}"
-    sed -i '/^NoPollBatteries=true$/d'                     "${file}"
-}
+# clean_legacy_logind / clean_legacy_upower (lib/common.sh) are called
+# on removal, so bare lines left by a pre-marker installer are cleaned
+# up even when no marker block exists.
 
 # -------------------------------------------------------------------------
 # Configuration

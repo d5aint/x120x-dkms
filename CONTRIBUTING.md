@@ -111,10 +111,12 @@ Every push and pull request runs (see `.github/workflows/ci.yml`):
   upstreamable.  Running `scripts/checkpatch.pl` from a kernel tree
   over your diff is encouraged; W=1 and sparse cleanliness are
   enforced by CI.
-- **Shell** (`install.sh`, `uninstall.sh`, `tools/`, `tests/`): bash,
-  clean under `shellcheck -S warning`.  Match the existing patterns —
-  in particular, the installer functions are written to be extractable
-  by the test suite, so keep functions self-contained.
+- **Shell** (`install.sh`, `uninstall.sh`, `lib/`, `tools/`, `tests/`):
+  bash, clean under `shellcheck -S warning`.  Match the existing
+  patterns — in particular, the installer functions are written to be
+  extractable by the test suite, so keep functions self-contained, and
+  anything install.sh and uninstall.sh must agree on belongs in
+  `lib/common.sh`.
 - **Documentation**: the README (with `CHANGELOG.md` and `docs/`) is
   the reference documentation; changes that alter behaviour must
   update it in the same PR.
