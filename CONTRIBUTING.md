@@ -139,6 +139,6 @@ Every push and pull request runs (see `.github/workflows/ci.yml`):
 
 ## License
 
-The project is licensed GPL-2.0.  Contributions are accepted under the
-project license; new source files carry the existing SPDX header
-(`GPL-2.0-or-later` for scripts and the driver source).
+The project is licensed GPL-2.0-or-later.  Contributions are accepted
+under the project license; new source files carry the existing SPDX
+`GPL-2.0-or-later` header.
