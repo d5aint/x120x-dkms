@@ -289,6 +289,29 @@ out=$(run_rbs "" "" "" "${CONF}")
 assert "14 old conf, no board key: board defaults, rest kept" 'printf "%s" "'"$out"'" | grep -q "V=12000/0/x120x"'
 assert "14 old conf: board source is default" 'printf "%s" "'"$out"'" | grep -q "|default$"'
 
+# The install script runs under set -euo pipefail, so the function
+# must return 0 on every path — a trailing `[ cond ] && x` made it
+# return 1 in Fast mode and killed the installer silently after
+# Step 4 (caught by the v0.4.8 Phase-2 hardware validation, missed
+# here because this harness runs without -e).  Drive it under the
+# caller's real shell options.
+run_rbs_set_e() {  # conf-file
+    (
+        set -euo pipefail
+        info() { :; }; warn() { :; }
+        OPT_MAH=""; OPT_CHARGE_MODE=""; OPT_BOARD=""
+        eval "${RBS_SRC}"
+        resolve_battery_settings "$1"
+        echo "survived"
+    ) 2>&1
+}
+printf 'options x120x battery_mah=20000 conservation_mode_default=0 board=x120x\n' > "${CONF}"
+out=$(run_rbs_set_e "${CONF}"); rc=$?
+assert "14 set -e, Fast mode: function returns 0"      '[ "'"$rc"'" -eq 0 ]'
+assert "14 set -e, Fast mode: caller survives"         'printf "%s" "'"$out"'" | grep -q "survived"'
+out=$(run_rbs_set_e "${WORK}/no-such-conf"); rc=$?
+assert "14 set -e, defaults path: caller survives"     '[ "'"$rc"'" -eq 0 ]'
+
 echo
 echo "Results: ${PASS} passed, ${FAIL} failed"
 [ "${FAIL}" -eq 0 ]
