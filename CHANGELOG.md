@@ -2,7 +2,7 @@
 
 Release history of [x120x-dkms](README.md), newest first.
 
-### v0.4.7 — CI build checks, issue templates, debug tooling, follow-up fixes
+### v0.4.7 — Review fixes, logind drop-in, docs restructure, CI expansion
 
 **Driver**
 - `set_property` emits a synchronous `power_supply_changed()` on the
