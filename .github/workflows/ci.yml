@@ -183,12 +183,11 @@ jobs:
       - name: Validate binding (dt-doc-validate)
         run: dt-doc-validate suptronics,x120x.yaml
 
-  # Kernel style check.  checkpatch.pl is fetched pinned to a kernel tag
-  # from GitHub's mirror of torvalds/linux — no kernel tree checkout
-  # needed (--no-tree).  Three
-  # message types are ignored as accepted house style; remove them from
-  # the ignore list (and sweep the file) when preparing the upstream
-  # submission:
+  # Kernel style check.  checkpatch.pl is fetched pinned to a kernel
+  # tag from GitHub's mirror of torvalds/linux — no kernel tree
+  # checkout needed (--no-tree).  Three message types are ignored as
+  # accepted house style; remove them from the ignore list (and sweep
+  # the file) when preparing the upstream submission:
   #   BLOCK_COMMENT_STYLE — the /* ---- banner ---- */ section comments
   #   SPLIT_STRING        — user-visible strings split for 80 columns
   #   DEEP_INDENTATION    — dead-battery state machine nesting

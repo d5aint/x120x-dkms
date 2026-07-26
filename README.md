@@ -240,7 +240,7 @@ welcome.
 
 | Board | Pi            | Driver | Kernel | Arch    | Reporter   |
 |-------|---------------|--------|--------|---------|------------|
-| X1206 | Raspberry Pi 5 | v0.4.6 | 6.12.x | aarch64 | maintainer |
+| X1206 | Raspberry Pi 5 | v0.4.7 | 6.12.x | aarch64 | maintainer |
 
 ### Experimental board support
 
