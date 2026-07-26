@@ -28,5 +28,5 @@ reporters credited in the release notes unless they prefer otherwise.
 
 The driver runs in kernel space on single-board computers, so the most
 relevant surface is **local**: sysfs writes, module parameters, and the
-installer/uninstaller's file handling.  The v0.4.6 changelog "Security"
-section lists the hardening already applied.
+installer/uninstaller's file handling.  The v0.4.6 entry in [CHANGELOG.md](CHANGELOG.md) has a
+"Security" section listing the hardening already applied.

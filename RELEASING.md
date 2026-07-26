@@ -64,9 +64,9 @@ it verbatim.  Save all Phase 0–4 captures under
 
 - Bump `PKG_VERSION` (install.sh), `PACKAGE_VERSION` (dkms.conf),
   `MODULE_VERSION` (src/x120x.c), and the manual-install version refs
-  together; finalize the changelog entry.
+  together; finalize the `CHANGELOG.md` entry.
 - Commit, push, confirm CI green on `main`.
 - `git tag -a vX.Y.Z -m "…" <validated-commit>`; `git push origin vX.Y.Z`.
 - Confirm CI green on the tag.
-- `gh release create vX.Y.Z --title "…" --notes-file <changelog-section>
+- `gh release create vX.Y.Z --title "…" --notes-file <CHANGELOG.md-section>
   --verify-tag --latest`.

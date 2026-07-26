@@ -115,14 +115,15 @@ Every push and pull request runs (see `.github/workflows/ci.yml`):
   clean under `shellcheck -S warning`.  Match the existing patterns —
   in particular, the installer functions are written to be extractable
   by the test suite, so keep functions self-contained.
-- **Documentation**: the README is the single reference document;
-  changes that alter behaviour must update it in the same PR.
+- **Documentation**: the README (with `CHANGELOG.md` and `docs/`) is
+  the reference documentation; changes that alter behaviour must
+  update it in the same PR.
 
 ## Commits and pull requests
 
 - One logical change per commit, with a body that explains *why* —
-  this driver's history (see "Real-world incidents that shaped this
-  driver" in the README) is part of its documentation.
+  this driver's history (see
+  [docs/incidents.md](docs/incidents.md)) is part of its documentation.
 - Add a `Signed-off-by:` line ([Developer Certificate of
   Origin](https://developercertificate.org/)) to commits touching
   `src/` or the device tree files — these are candidates for eventual
