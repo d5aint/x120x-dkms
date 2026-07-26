@@ -215,3 +215,44 @@ jobs:
           perl "${RUNNER_TEMP}/checkpatch.pl" --no-tree \
             --ignore BLOCK_COMMENT_STYLE,SPLIT_STRING,DEEP_INDENTATION \
             -f src/x120x.c
+
+  # Compile the module against the kernel Raspberry Pi OS actually
+  # ships — raspberrypi/linux rpi-6.12.y, cross-compiled for arm64
+  # (Pi 5 bcm2712_defconfig).  The Ubuntu-header builds above catch
+  # mainline API drift; this catches RPi-tree divergence.  The branch
+  # head is deliberately unpinned: tracking what users are about to
+  # run is the point of the job.  Slowest job (shallow kernel clone +
+  # modules_prepare, ~5-10 min); deliberately uncached for simplicity.
+  build-rpi:
+    runs-on: ubuntu-latest
+    env:
+      RPI_BRANCH: rpi-6.12.y
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install cross toolchain and kbuild deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-aarch64-linux-gnu \
+            flex bison bc libssl-dev libelf-dev
+
+      - name: Clone raspberrypi/linux (${{ env.RPI_BRANCH }}, shallow)
+        run: |
+          git clone --depth 1 --branch "${RPI_BRANCH}" \
+            https://github.com/raspberrypi/linux.git "${RUNNER_TEMP}/rpi-linux"
+          git -C "${RUNNER_TEMP}/rpi-linux" log -1 --oneline
+
+      - name: Prepare kernel tree (bcm2712_defconfig + modules_prepare)
+        run: |
+          make -C "${RUNNER_TEMP}/rpi-linux" ARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- bcm2712_defconfig
+          make -C "${RUNNER_TEMP}/rpi-linux" ARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- -j"$(nproc)" modules_prepare
+
+      # Command-line variables propagate to the sub-make our Makefile
+      # spawns, so ARCH/CROSS_COMPILE reach the kernel build system.
+      - name: Compile module against ${{ env.RPI_BRANCH }} (-Werror)
+        run: |
+          make KDIR="${RUNNER_TEMP}/rpi-linux" ARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS=-Werror
+          file src/x120x.ko

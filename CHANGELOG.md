@@ -94,6 +94,11 @@ Release history of [x120x-dkms](README.md), newest first.
   declarations — no behaviour change.
 - New `binding` job validates `suptronics,x120x.yaml` against the
   dtschema meta-schema with `dt-doc-validate`.
+- New `build-rpi` job cross-compiles the module (arm64,
+  `bcm2712_defconfig`, `-Werror`) against a shallow clone of
+  raspberrypi/linux `rpi-6.12.y` — the kernel Raspberry Pi OS
+  actually ships — catching RPi-tree divergence the Ubuntu-header
+  builds cannot see.
 - Shell job now also verifies every README in-page anchor link resolves
   to a heading (GitHub slug rules), next to the repository-layout tree
   check.

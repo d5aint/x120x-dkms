@@ -91,8 +91,10 @@ Every push and pull request runs (see `.github/workflows/ci.yml`):
 
 - `bash -n` and `shellcheck -S warning` on all shell scripts
 - the full test suite under `tests/`
-- module compile-checks with `KCFLAGS=-Werror` on two kernel flavours
-  plus an Ubuntu 24.04 container (oldest supported LTS floor)
+- module compile-checks with `KCFLAGS=-Werror` on two kernel flavours,
+  an Ubuntu 24.04 container (oldest supported LTS floor), and a
+  cross-compile against raspberrypi/linux `rpi-6.12.y` — the kernel
+  Raspberry Pi OS actually ships
 - `make W=1` and sparse (`make C=1`), both required clean
 - `checkpatch.pl --no-tree` over `src/x120x.c` (fetched pinned from
   kernel.org), with three documented house-style ignores listed in the
