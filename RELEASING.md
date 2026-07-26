@@ -9,8 +9,10 @@ it verbatim.  Save all Phase 0–4 captures under
 
 - `dkms status`; `modinfo x120x | grep -E 'version|filename'`
 - `sudo rpi-eeprom-config > eeprom.before`
-- copies of `/etc/systemd/logind.conf`, `/etc/UPower/UPower.conf`,
-  `/boot/firmware/config.txt`, `/etc/modprobe.d/x120x.conf`
+- copies of `/etc/systemd/logind.conf`,
+  `/etc/systemd/logind.conf.d/90-x120x.conf` (if present),
+  `/etc/UPower/UPower.conf`, `/boot/firmware/config.txt`,
+  `/etc/modprobe.d/x120x.conf`
 - sysfs: `capacity`, `voltage_now`, `status`, `health`, `charge_type`,
   both `charge_control_*_threshold`, AC `online`,
   `ls -l /sys/module/x120x/parameters/`
@@ -27,8 +29,9 @@ it verbatim.  Save all Phase 0–4 captures under
 - `sudo bash install.sh --battery-mah <capacity>` — capture full output.
   Expect: old DKMS removed and the new version built/installed; EEPROM
   "already configured" skip (no `--apply`) if already set; both
-  config.txt "already present"; exactly one logind and one UPower marker
-  block.
+  config.txt "already present"; the logind drop-in written (and any
+  pre-drop-in marker block removed from `logind.conf`); exactly one
+  UPower marker block.
 - Diff each config copy against its post-install state: **config.txt and
   EEPROM must be byte-identical**.
 

@@ -32,7 +32,8 @@ info() { :; }; ok() { :; }; warn() { :; }; die() { echo "die:$*" >&2; return 1; 
 # the first column-0 "}" after its opener, which the sed ranges rely on.
 eval "$(sed -n '/^X120X_MARKER_BEGIN_PREFIX=/,/^X120X_MARKER_END_PREFIX=/p' "${COMMON_SH}")"
 eval "$(sed -n '/^install_ini_block() {/,/^}/p'  "${INSTALL_SH}")"
-eval "$(sed -n '/^remove_ini_block() {/,/^}/p'    "${UNINSTALL_SH}")"
+eval "$(sed -n '/^install_logind_dropin() {/,/^}/p' "${INSTALL_SH}")"
+eval "$(sed -n '/^remove_ini_block() {/,/^}/p'    "${COMMON_SH}")"
 eval "$(sed -n '/^clean_legacy_logind() {/,/^}/p' "${COMMON_SH}")"
 eval "$(sed -n '/^clean_legacy_upower() {/,/^}/p' "${COMMON_SH}")"
 # The exact [all]-orphan perl program (extracted, not copied, to avoid drift).
@@ -204,6 +205,32 @@ assert "gpio: active line matches"          'gmatches "gpio=6=pu"'
 assert "gpio: leading whitespace matches"   'gmatches "    gpio=6=pu"'
 assert "gpio: commented-out does NOT match" '! gmatches "#gpio=6=pu"'
 assert "gpio: suffixed does NOT match"       '! gmatches "gpio=6=pux"'
+
+# ---------------------------------------------------------------------------
+echo "logind drop-in"
+# ---------------------------------------------------------------------------
+# install_logind_dropin writes a self-contained file under a conf.d
+# directory it creates on demand; a rerun must be byte-identical.
+DROPIN="${WORK}/logind.conf.d/90-x120x.conf"
+install_logind_dropin "${DROPIN}"
+assert "drop-in: file created (dir on demand)" '[ -f "${DROPIN}" ]'
+assert "drop-in: [Login] section present"      'grep -qx "\[Login\]" "${DROPIN}"'
+assert "drop-in: HandleLowBattery=poweroff"    'grep -qx "HandleLowBattery=poweroff" "${DROPIN}"'
+cp "${DROPIN}" "${DROPIN}.first"
+install_logind_dropin "${DROPIN}"
+assert "drop-in: rerun byte-identical"         'cmp -s "${DROPIN}" "${DROPIN}.first"'
+
+# Migration path used by install.sh Step 9: a logind.conf carrying both
+# a pre-drop-in marker block and pre-marker bare lines is restored to
+# pristine by clean_legacy_logind + remove_ini_block.
+LGD="${WORK}/logind.conf"
+printf '[Login]\n#KillUserProcesses=no\n' > "${LGD}"
+cp "${LGD}" "${LGD}.orig"
+printf '%s\n' "# Added by x120x-dkms installer" "HandleLowBattery=poweroff" >> "${LGD}"
+install_ini_block "${LGD}" "Login" "logind-low-battery" "HandleLowBattery=poweroff"
+clean_legacy_logind "${LGD}"
+remove_ini_block "${LGD}" "logind-low-battery"
+assert "migration: logind.conf restored pristine" 'cmp -s "${LGD}" "${LGD}.orig"'
 
 echo
 echo "Results: ${PASS} passed, ${FAIL} failed"

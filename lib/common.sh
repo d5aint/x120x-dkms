@@ -2,11 +2,11 @@
 #
 # This file is sourced, never executed.  It is the single source of
 # truth for everything the installer and uninstaller must agree on:
-# the output helpers, the root check, the INI marker constants that
-# install_ini_block (install.sh) and remove_ini_block (uninstall.sh)
-# both build their markers from, and the legacy-line cleanup helpers.
-# Before this file existed the two scripts carried identical copies
-# with nothing enforcing agreement.
+# the output helpers, the root check, the INI marker constants,
+# remove_ini_block (used by uninstall.sh on removal and by install.sh
+# to migrate pre-drop-in installs), and the legacy-line cleanup
+# helpers.  Before this file existed the two scripts carried identical
+# copies with nothing enforcing agreement.
 #
 # Copyright (C) 2026 Edvard Fielding <mor-lock@users.noreply.github.com>
 # SPDX-License-Identifier: GPL-2.0-or-later
@@ -59,6 +59,35 @@ require_root() {
 X120X_MARKER_BEGIN_PREFIX="# >>> x120x-dkms:"
 # shellcheck disable=SC2034
 X120X_MARKER_END_PREFIX="# <<< x120x-dkms:"
+
+# Delete a marker-wrapped block written by install_ini_block
+# (install.sh).  Lines outside the markers are never touched, so users
+# who set their own values are left alone.  Called by uninstall.sh on
+# removal, and by install.sh to migrate a system whose earlier install
+# appended the logind block to logind.conf before the drop-in existed.
+#
+# Usage: remove_ini_block FILE TAG
+remove_ini_block() {
+    local file="$1" tag="$2"
+    [ -f "${file}" ] || return 0
+
+    local marker_begin="${X120X_MARKER_BEGIN_PREFIX} ${tag} (do not edit) >>>"
+    local marker_end="${X120X_MARKER_END_PREFIX} ${tag} <<<"
+
+    grep -qF "${marker_begin}" "${file}" || return 0
+
+    local esc_begin esc_end
+    esc_begin=$(printf '%s\n' "${marker_begin}" | sed 's/[][\/.^$*]/\\&/g')
+    esc_end=$(printf '%s\n' "${marker_end}"   | sed 's/[][\/.^$*]/\\&/g')
+    sed -i "/^${esc_begin}$/,/^${esc_end}$/d" "${file}"
+
+    # The installer prepends exactly one blank line before each block,
+    # and always appends the block at end-of-file, so after deleting the
+    # block that one blank line is the final line.  Remove exactly that
+    # one trailing blank — not every trailing blank, which would eat a
+    # user's own trailing blank line.
+    sed -i -e '${/^$/d}' "${file}" 2>/dev/null || true
+}
 
 # -------------------------------------------------------------------------
 # Legacy cleanup helpers

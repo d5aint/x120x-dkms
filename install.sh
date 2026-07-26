@@ -127,6 +127,35 @@ install_ini_block() {
 # pre-marker installer gets its bare legacy lines removed either way.
 
 # -------------------------------------------------------------------------
+# logind drop-in
+#
+# Low-battery shutdown is configured through a drop-in file under
+# /etc/systemd/logind.conf.d/ instead of editing logind.conf: the
+# packaged file stays pristine (dpkg never sees it as modified, so no
+# conffile prompt on systemd upgrades), every line in the drop-in is
+# ours, and uninstall is a plain rm.  UPower has no drop-in mechanism,
+# so UPower.conf keeps the marker-block approach above.
+#
+# Usage: install_logind_dropin FILE
+# -------------------------------------------------------------------------
+
+install_logind_dropin() {
+    local file="$1"
+    mkdir -p "$(dirname "${file}")"
+    cat > "${file}" << 'DROPIN_EOF'
+# Installed by x120x-dkms — removed by uninstall.sh.
+#
+# Clean shutdown when the UPS battery reaches UPower's
+# warning-level: action (2% SoC as configured in UPower.conf).
+# To opt out, set HandleLowBattery=ignore in a later drop-in
+# (e.g. 99-local.conf) or delete this file and restart
+# systemd-logind.
+[Login]
+HandleLowBattery=poweroff
+DROPIN_EOF
+}
+
+# -------------------------------------------------------------------------
 # Pi 5 bootloader EEPROM configuration
 #
 # POWER_OFF_ON_HALT=1 is required for the driver's core behaviour (clean
@@ -522,22 +551,17 @@ configure_bootloader
 
 info "Step 9/10 — Configuring low-battery shutdown..."
 
-# Strip any bare lines left over from a previous (pre-marker) install.
-# On a fresh system these are no-ops.
+# Migration: strip anything an earlier installer put into logind.conf
+# itself — the marker-wrapped block (pre-drop-in versions) and bare
+# legacy lines (pre-marker versions).  On a fresh system both are
+# no-ops, and afterwards the packaged file is pristine again.
 clean_legacy_logind "${LOGIND_CONF:=/etc/systemd/logind.conf}"
+remove_ini_block "${LOGIND_CONF}" "logind-low-battery"
 
-# systemd-logind honours the last matching key in the [Login] section,
-# so appending our block at the bottom overrides any earlier setting
-# without commenting out lines we did not write.  See install_ini_block
-# for the marker convention.
-install_ini_block "${LOGIND_CONF}" "Login" "logind-low-battery" \
-    "# Clean shutdown when battery reaches capacity_level=Critical" \
-    "# (cell voltage ≤ 3.20 V on battery)." \
-    "# To opt out, remove the dtoverlay=x120x line or set" \
-    "# HandleLowBattery=ignore in a drop-in file under" \
-    "# /etc/systemd/logind.conf.d/" \
-    "HandleLowBattery=poweroff"
-ok "HandleLowBattery=poweroff set in ${LOGIND_CONF}"
+# Drop-ins under logind.conf.d override logind.conf, so the setting
+# wins regardless of what the packaged file says.
+install_logind_dropin "${LOGIND_DROPIN:=/etc/systemd/logind.conf.d/90-x120x.conf}"
+ok "HandleLowBattery=poweroff set via ${LOGIND_DROPIN}"
 
 # UPower configuration:
 #   CriticalPowerAction=PowerOff  — HybridSleep hangs on Raspberry Pi.

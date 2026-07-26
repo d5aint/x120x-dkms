@@ -538,9 +538,10 @@ recovery from a deep discharge event.  UPower then fires
 threshold, which the installer sets to **2%** — well above the 3.20 V
 floor.  This causes `systemd-logind` to initiate a clean OS shutdown.
 The install script configures the whole chain automatically:
-`HandleLowBattery=poweroff` in `logind.conf`, and
-`UsePercentageForPolicy=true`, `PercentageAction=2` and
-`CriticalPowerAction=PowerOff` in `UPower.conf`.
+`HandleLowBattery=poweroff` via a drop-in under
+`/etc/systemd/logind.conf.d/`, and `UsePercentageForPolicy=true`,
+`PercentageAction=2` and `CriticalPowerAction=PowerOff` in
+`UPower.conf`.
 
 With the driver installed, the shutdown sequence on a prolonged outage
 is:
@@ -629,16 +630,26 @@ The driver reports `capacity_level=Critical` at 5% SoC, which triggers
 UPower's low battery warning.  The actual shutdown fires at 2% when
 UPower escalates to `warning-level: action`.
 
-The install script enables this automatically by setting the following
-in `/etc/systemd/logind.conf`:
+The install script enables this automatically by writing a drop-in
+file, `/etc/systemd/logind.conf.d/90-x120x.conf`:
 
 ```ini
+[Login]
 HandleLowBattery=poweroff
 ```
 
-To disable it, change the line to:
+A drop-in is used instead of editing `/etc/systemd/logind.conf` so the
+packaged file stays pristine — dpkg never sees it as modified, so a
+systemd upgrade never raises a conffile prompt over it — and every
+line in the drop-in belongs to the driver.  (Systems installed by
+older versions carry a marker-wrapped block in `logind.conf` instead;
+reinstalling migrates it to the drop-in automatically.)
+
+To disable the behaviour, override it from a later drop-in (e.g.
+`/etc/systemd/logind.conf.d/99-local.conf`):
 
 ```ini
+[Login]
 HandleLowBattery=ignore
 ```
 
@@ -852,15 +863,15 @@ The uninstall script removes:
 - The `dtoverlay=x120x` and `gpio=6=pu` lines from `config.txt`
 - `/etc/modprobe.d/x120x.conf`
 - The charge mode persistence script and udev rule
-- The marker-wrapped block that the installer added to
-  `/etc/systemd/logind.conf` (delimited by
-  `# >>> x120x-dkms: logind-low-battery (do not edit) >>>` ...
-  `# <<< x120x-dkms: logind-low-battery <<<`)
+- The logind drop-in `/etc/systemd/logind.conf.d/90-x120x.conf` (and
+  the `logind.conf.d` directory itself, if empty afterwards)
 - The marker-wrapped block that the installer added to
   `/etc/UPower/UPower.conf` (delimited by
   `# >>> x120x-dkms: upower-pi-tweaks (do not edit) >>>` ...
   `# <<< x120x-dkms: upower-pi-tweaks <<<`)
-- Any bare lines left over from older (pre-marker) installer versions
+- On systems installed before the drop-in existed: the marker-wrapped
+  `logind-low-battery` block in `/etc/systemd/logind.conf`, and any
+  bare lines left over from even older (pre-marker) installer versions
 
 The following are intentionally left unchanged:
 
@@ -997,20 +1008,19 @@ rm -f "$conf"
 The driver reports `capacity_level=Critical` when SoC drops below 5%.
 UPower escalates to `warning-level: action` at 2% SoC (the
 `PercentageAction` threshold the installer sets), which triggers a clean
-OS shutdown via logind.  To enable this, add the following to
-`/etc/systemd/logind.conf`:
+OS shutdown via logind.  To enable this, create a drop-in file:
 
 ```bash
-sudo nano /etc/systemd/logind.conf
-```
-
-Add or update:
-
-```ini
+sudo mkdir -p /etc/systemd/logind.conf.d
+sudo tee /etc/systemd/logind.conf.d/90-x120x.conf << 'EOF'
+[Login]
 HandleLowBattery=poweroff
+EOF
 ```
 
-To disable this behaviour at any time, change the value to `ignore`.
+To disable this behaviour at any time, delete the file (or override
+`HandleLowBattery=ignore` from a later drop-in) and restart
+`systemd-logind`.
 
 The install script does this automatically.
 

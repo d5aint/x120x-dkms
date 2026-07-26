@@ -13,8 +13,10 @@
 #   - dtoverlay=x120x and gpio=6=pu lines from config.txt
 #   - /etc/modprobe.d/x120x.conf
 #   - Charge mode persistence script and udev rule
-#   - x120x-dkms marker-wrapped blocks from /etc/systemd/logind.conf
-#     and /etc/UPower/UPower.conf (plus legacy bare lines written by
+#   - The logind drop-in /etc/systemd/logind.conf.d/90-x120x.conf
+#   - x120x-dkms marker-wrapped blocks from /etc/UPower/UPower.conf and
+#     — on systems installed before the drop-in existed — from
+#     /etc/systemd/logind.conf (plus legacy bare lines written by
 #     older versions of install.sh)
 #
 # What this script does NOT touch:
@@ -45,38 +47,9 @@ set -euo pipefail
 . "$(cd "$(dirname "$0")" && pwd)/lib/common.sh" \
     || { echo "[x120x] ERROR: cannot load lib/common.sh — run from a full checkout" >&2; exit 1; }
 
-# -------------------------------------------------------------------------
-# INI block removal helper
-#
-# Delete a marker-wrapped block written by install_ini_block in install.sh.
-# Lines outside the markers are never touched, so users who set their own
-# values are left alone.
-#
-# The marker prefix constants come from lib/common.sh, shared with
-# install_ini_block in install.sh.
-# -------------------------------------------------------------------------
-
-remove_ini_block() {
-    local file="$1" tag="$2"
-    [ -f "${file}" ] || return 0
-
-    local marker_begin="${X120X_MARKER_BEGIN_PREFIX} ${tag} (do not edit) >>>"
-    local marker_end="${X120X_MARKER_END_PREFIX} ${tag} <<<"
-
-    grep -qF "${marker_begin}" "${file}" || return 0
-
-    local esc_begin esc_end
-    esc_begin=$(printf '%s\n' "${marker_begin}" | sed 's/[][\/.^$*]/\\&/g')
-    esc_end=$(printf '%s\n' "${marker_end}"   | sed 's/[][\/.^$*]/\\&/g')
-    sed -i "/^${esc_begin}$/,/^${esc_end}$/d" "${file}"
-
-    # The installer prepends exactly one blank line before each block,
-    # and always appends the block at end-of-file, so after deleting the
-    # block that one blank line is the final line.  Remove exactly that
-    # one trailing blank — not every trailing blank, which would eat a
-    # user's own trailing blank line.
-    sed -i -e '${/^$/d}' "${file}" 2>/dev/null || true
-}
+# remove_ini_block (lib/common.sh) deletes the marker-wrapped blocks
+# written by install_ini_block; lines outside the markers are never
+# touched, so users who set their own values are left alone.
 
 # clean_legacy_logind / clean_legacy_upower (lib/common.sh) are called
 # on removal, so bare lines left by a pre-marker installer are cleaned
@@ -232,17 +205,30 @@ fi
 # Step 6: Restore logind.conf
 # -------------------------------------------------------------------------
 
-info "Step 6/7 — Restoring logind.conf..."
+info "Step 6/7 — Restoring logind configuration..."
+
+# Current installs: low-battery shutdown lives in a drop-in file that
+# is entirely ours — removal is a plain rm.  Remove the directory too
+# if (and only if) it is empty afterwards.
+LOGIND_DROPIN="${LOGIND_DROPIN:-/etc/systemd/logind.conf.d/90-x120x.conf}"
+if [ -f "${LOGIND_DROPIN}" ]; then
+    rm -f "${LOGIND_DROPIN}"
+    rmdir --ignore-fail-on-non-empty "$(dirname "${LOGIND_DROPIN}")" 2>/dev/null || true
+    ok "Removed ${LOGIND_DROPIN}"
+else
+    ok "logind drop-in not found (already removed)"
+fi
 
 LOGIND_CONF="/etc/systemd/logind.conf"
 if [ -f "${LOGIND_CONF}" ]; then
-    # Preferred path: remove the marker-wrapped block written by the
-    # current installer.  Lines outside our markers are not touched.
+    # Older installs (pre-drop-in) appended a marker-wrapped block to
+    # logind.conf itself; remove it.  Lines outside our markers are
+    # not touched.
     remove_ini_block "${LOGIND_CONF}" "logind-low-battery"
 
-    # Legacy cleanup: remove bare lines written by older versions of
-    # install.sh.  Same helper is called from install.sh too, so the
-    # patterns stay in one place.
+    # Legacy cleanup: remove bare lines written by even older
+    # (pre-marker) versions of install.sh.  Same helper is called from
+    # install.sh too, so the patterns stay in one place.
     clean_legacy_logind "${LOGIND_CONF}"
 
     ok "Restored ${LOGIND_CONF}"

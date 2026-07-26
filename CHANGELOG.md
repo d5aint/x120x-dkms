@@ -30,6 +30,15 @@ Release history of [x120x-dkms](README.md), newest first.
   the three previously disagreed).
 
 **Installer**
+- Low-battery shutdown is now configured through a drop-in file,
+  `/etc/systemd/logind.conf.d/90-x120x.conf`, instead of appending a
+  marker block to `/etc/systemd/logind.conf`.  The packaged file stays
+  pristine — dpkg never sees it as modified, so a systemd upgrade
+  never raises a conffile prompt over the driver's edit — and
+  uninstall of the setting is a plain `rm`.  Reinstalling migrates a
+  pre-drop-in system automatically (the old marker block and any
+  pre-marker bare lines are removed from `logind.conf`).  UPower has
+  no drop-in mechanism, so `UPower.conf` keeps the marker block.
 - `install_ini_block` no longer accumulates a leading blank line before
   its marker block on reinstall — a repeat install is now byte-identical.
 - `--charge-mode` and `--board` with a missing value now die with a
