@@ -183,6 +183,95 @@ DROPIN_EOF
 }
 
 # -------------------------------------------------------------------------
+# Battery-setting resolution
+#
+# Precedence per setting, independently: explicit CLI flag > value
+# parsed from an existing /etc/modprobe.d/x120x.conf > built-in
+# default (1000 / 0 / x120x).  An omitted flag means "keep what's
+# there", so the natural update command — git pull && sudo bash
+# install.sh — no longer resets pack capacity or a persisted Long
+# Life mode.  This matches how the udev persistence already treats
+# conservation_mode_default.  A value that parses but fails
+# validation warns and falls back to the default for that setting
+# only.  With no existing conf this reduces to flag-or-default,
+# keeping the first install identical.
+#
+# Sets INPUT_MAH, CONSERVATION_DEFAULT, BOARD_VARIANT (+ *_SRC
+# provenance strings and CHARGE_MODE_DEFAULT for the summary).
+#
+# Usage: resolve_battery_settings [CONF_FILE]
+# -------------------------------------------------------------------------
+
+resolve_battery_settings() {
+    local conf="${1:-/etc/modprobe.d/x120x.conf}"
+    local opts="" conf_mah="" conf_cons="" conf_board=""
+
+    if [ -f "${conf}" ]; then
+        # Last "options x120x" line wins, mirroring modprobe semantics;
+        # per-key extraction tolerates any order and missing keys.
+        opts=$(sed -n 's/^options[[:space:]]\{1,\}x120x[[:space:]]\{1,\}//p' "${conf}" | tail -1)
+        conf_mah=$(printf '%s\n' "${opts}" | grep -o 'battery_mah=[^[:space:]]*' | tail -1 | cut -d= -f2)
+        conf_cons=$(printf '%s\n' "${opts}" | grep -o 'conservation_mode_default=[^[:space:]]*' | tail -1 | cut -d= -f2)
+        conf_board=$(printf '%s\n' "${opts}" | grep -o 'board=[^[:space:]]*' | tail -1 | cut -d= -f2)
+    fi
+
+    if [ -n "${OPT_MAH}" ]; then
+        INPUT_MAH="${OPT_MAH}"; MAH_SRC="from --battery-mah"
+    elif [ -n "${conf_mah}" ]; then
+        case "${conf_mah}" in
+            *[!0-9]*|0)
+                warn "Ignoring invalid battery_mah='${conf_mah}' in ${conf} — using default 1000"
+                INPUT_MAH=1000; MAH_SRC="default"
+                ;;
+            *)
+                INPUT_MAH="${conf_mah}"; MAH_SRC="kept from existing configuration"
+                ;;
+        esac
+    else
+        INPUT_MAH=1000; MAH_SRC="default"
+    fi
+
+    if [ -n "${OPT_CHARGE_MODE}" ]; then
+        CONSERVATION_DEFAULT=0
+        [ "${OPT_CHARGE_MODE}" = "longlife" ] && CONSERVATION_DEFAULT=1
+        CONS_SRC="from --charge-mode"
+    elif [ -n "${conf_cons}" ]; then
+        case "${conf_cons}" in
+            0|1)
+                CONSERVATION_DEFAULT="${conf_cons}"
+                CONS_SRC="kept from existing configuration"
+                ;;
+            *)
+                warn "Ignoring invalid conservation_mode_default='${conf_cons}' in ${conf} — using default 0"
+                CONSERVATION_DEFAULT=0; CONS_SRC="default"
+                ;;
+        esac
+    else
+        CONSERVATION_DEFAULT=0; CONS_SRC="default"
+    fi
+
+    if [ -n "${OPT_BOARD}" ]; then
+        BOARD_VARIANT="${OPT_BOARD}"; BOARD_SRC="from --board"
+    elif [ -n "${conf_board}" ]; then
+        case "${conf_board}" in
+            x120x|x728v2|x728v1|x708|x729)
+                BOARD_VARIANT="${conf_board}"
+                BOARD_SRC="kept from existing configuration"
+                ;;
+            *)
+                warn "Ignoring invalid board='${conf_board}' in ${conf} — using default x120x"
+                BOARD_VARIANT="x120x"; BOARD_SRC="default"
+                ;;
+        esac
+    else
+        BOARD_VARIANT="x120x"; BOARD_SRC="default"
+    fi
+
+    CHARGE_MODE_DEFAULT="fast"
+    [ "${CONSERVATION_DEFAULT}" = "1" ] && CHARGE_MODE_DEFAULT="longlife"
+}
+
+# -------------------------------------------------------------------------
 # Kernel floor
 #
 # The driver needs kernel 6.3+ (one-arg i2c .probe, the sys-off
@@ -508,25 +597,24 @@ ok "Overlay compiled"
 # -------------------------------------------------------------------------
 
 MODPROBE_CONF="/etc/modprobe.d/x120x.conf"
-INPUT_MAH="${OPT_MAH:-1000}"
+resolve_battery_settings "${MODPROBE_CONF}"
+info "battery_mah=${INPUT_MAH} (${MAH_SRC})"
+info "conservation_mode_default=${CONSERVATION_DEFAULT} (${CONS_SRC})"
+info "board=${BOARD_VARIANT} (${BOARD_SRC})"
 
-CHARGE_MODE_DEFAULT="${OPT_CHARGE_MODE:-fast}"
-CONSERVATION_DEFAULT=0
-[ "${CHARGE_MODE_DEFAULT}" = "longlife" ] && CONSERVATION_DEFAULT=1
-BOARD_VARIANT="${OPT_BOARD:-x120x}"
-
-# Warn if experimental board selected.  Currently unreachable — the
-# parser refuses non-x120x boards until per-board overlays ship — but
-# kept so the flow is ready when they do.
+# Warn if an experimental board is in effect — reachable via the
+# --board flag once per-board overlays ship, or today via a board=
+# value preserved from a hand-edited conf (the manual dev path).
 if [ "${BOARD_VARIANT}" != "x120x" ]; then
     warn "Board variant ${BOARD_VARIANT} is EXPERIMENTAL and untested."
     warn "Validate correct operation before relying on this driver."
 fi
 
-# Long Life not supported on boards without charge control
+# Long Life not supported on boards without charge control.  Applies
+# to the effective values, whichever source they came from.
 if [ "${BOARD_VARIANT}" = "x728v1" ] || [ "${BOARD_VARIANT}" = "x708" ] || [ "${BOARD_VARIANT}" = "x729" ]; then
-    if [ "${CHARGE_MODE_DEFAULT}" = "longlife" ]; then
-        warn "--charge-mode longlife ignored: ${BOARD_VARIANT} has no charge control GPIO"
+    if [ "${CONSERVATION_DEFAULT}" = "1" ]; then
+        warn "Long Life mode ignored: ${BOARD_VARIANT} has no charge control GPIO"
         CHARGE_MODE_DEFAULT="fast"
         CONSERVATION_DEFAULT=0
     fi

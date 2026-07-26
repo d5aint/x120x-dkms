@@ -5,6 +5,16 @@ Release history of [x120x-dkms](README.md), newest first.
 ### Unreleased
 
 **Installer**
+- Re-running `install.sh` now preserves the existing configuration:
+  each of `battery_mah`, `conservation_mode_default`, and `board` is
+  resolved as CLI flag > value from the existing
+  `/etc/modprobe.d/x120x.conf` > default, independently, with the
+  effective source shown in the install output.  Previously the
+  natural update command — `git pull && sudo bash install.sh` —
+  silently reset pack capacity to 1000 mAh and a persisted Long Life
+  mode back to Fast.  Invalid parsed values warn and fall back to the
+  default for that setting only; a first install (no conf) is
+  unchanged.
 - `uninstall.sh` now parses arguments: `--help` / `-h` prints what the
   script removes and what it leaves alone (works without root), and an
   unknown option aborts before any uninstall step.  Previously every

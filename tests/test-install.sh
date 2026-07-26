@@ -249,6 +249,46 @@ assert "13 go-w stripped"          '[ -z "$(find "${DST}" -perm /022)" ]'
 install_dkms_tree "${FIX}" "${DST}"
 assert "13 rerun replaces cleanly" '[ -f "${DST}/dkms.conf" ]'
 
+# 14 — resolve_battery_settings: per-setting precedence flag > existing
+#      conf > default, with warn-and-default on invalid parsed values.
+echo "resolve_battery_settings tests"
+RBS_SRC=$(sed -n '/^resolve_battery_settings() {/,/^}/p' "${INSTALL_SH}")
+[ -n "${RBS_SRC}" ] || { echo "could not extract resolve_battery_settings() from install.sh" >&2; exit 2; }
+run_rbs() {  # mah-flag mode-flag board-flag conf-file
+    (
+        info() { :; }
+        warn() { echo "warn:$*"; }
+        OPT_MAH="$1"; OPT_CHARGE_MODE="$2"; OPT_BOARD="$3"
+        eval "${RBS_SRC}"
+        resolve_battery_settings "$4"
+        echo "V=${INPUT_MAH}/${CONSERVATION_DEFAULT}/${BOARD_VARIANT}"
+        echo "S=${MAH_SRC}|${CONS_SRC}|${BOARD_SRC}"
+    ) 2>&1
+}
+
+CONF="${WORK}/x120x.conf"
+printf '# comment\noptions x120x battery_mah=20000 conservation_mode_default=1 board=x120x\n' > "${CONF}"
+out=$(run_rbs "" "" "" "${CONF}")
+assert "14 conf, no flags: all preserved"  'printf "%s" "'"$out"'" | grep -q "V=20000/1/x120x"'
+assert "14 conf, no flags: sources say kept" '[ "$(printf "%s" "'"$out"'" | grep -c "kept from existing")" -ge 0 ] && printf "%s" "'"$out"'" | grep -q "S=kept from existing configuration|kept from existing configuration|kept from existing configuration"'
+
+out=$(run_rbs "6000" "" "" "${CONF}")
+assert "14 one flag: mah overridden, rest kept" 'printf "%s" "'"$out"'" | grep -q "V=6000/1/x120x"'
+assert "14 one flag: mah source is the flag"    'printf "%s" "'"$out"'" | grep -q "S=from --battery-mah|kept"'
+
+out=$(run_rbs "" "" "" "${WORK}/no-such-conf")
+assert "14 no conf, no flags: defaults" 'printf "%s" "'"$out"'" | grep -q "V=1000/0/x120x"'
+
+printf 'options x120x battery_mah=abc conservation_mode_default=1 board=x120x\n' > "${CONF}"
+out=$(run_rbs "" "" "" "${CONF}")
+assert "14 invalid mah: warns naming value" 'printf "%s" "'"$out"'" | grep -q "warn:.*battery_mah=.abc."'
+assert "14 invalid mah: default, others kept" 'printf "%s" "'"$out"'" | grep -q "V=1000/1/x120x"'
+
+printf 'options x120x battery_mah=12000 conservation_mode_default=0\n' > "${CONF}"
+out=$(run_rbs "" "" "" "${CONF}")
+assert "14 old conf, no board key: board defaults, rest kept" 'printf "%s" "'"$out"'" | grep -q "V=12000/0/x120x"'
+assert "14 old conf: board source is default" 'printf "%s" "'"$out"'" | grep -q "|default$"'
+
 echo
 echo "Results: ${PASS} passed, ${FAIL} failed"
 [ "${FAIL}" -eq 0 ]
