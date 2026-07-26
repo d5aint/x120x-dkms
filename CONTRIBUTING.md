@@ -110,6 +110,10 @@ Every push and pull request runs (see `.github/workflows/ci.yml`):
     in every tracked `.md` file: in-page `[...](#anchor)` links,
     relative `.md` targets, and cross-file anchors.  If you rename or
     remove a heading, or move a file, fix its cross-references.
+  - **Version strings** — `tools/check-versions.sh` verifies the
+    version agrees between `dkms.conf`, `install.sh`, `src/x120x.c`,
+    and the hardcoded refs in `docs/manual-install.md`.  Bump all
+    four together.
 
 ## Code style
 

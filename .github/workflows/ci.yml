@@ -57,6 +57,13 @@ jobs:
       - name: Markdown links resolve
         run: bash tools/check-links.sh
 
+      # Fail if the version string disagrees between dkms.conf,
+      # install.sh, src/x120x.c, and the hardcoded refs in
+      # docs/manual-install.md — previously enforced only by the
+      # RELEASING.md checklist.
+      - name: Version strings agree
+        run: bash tools/check-versions.sh
+
   # Compile-check the module against the runner's stock generic headers and
   # the newest HWE headers.  Compile only — the module is never loaded.
   build:
