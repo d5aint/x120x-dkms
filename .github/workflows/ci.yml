@@ -49,17 +49,13 @@ jobs:
           done
           [ "$fail" -eq 0 ] || { echo "Update the tree in README.md."; exit 1; }
 
-      # Fail if an in-page anchor link ([...](#anchor)) does not resolve to a
-      # heading (GitHub slug rules, fence-aware, duplicate -N suffixing), so a
-      # renamed/removed section can't silently break a cross-reference.
-      - name: README anchor links resolve
-        run: |
-          anchors=$(awk '/^```/{f=!f;next} !f&&/^#+ /{h=$0;sub(/^#+[ \t]+/,"",h);s=tolower(h);gsub(/[^a-z0-9 -]+/,"",s);gsub(/ /,"-",s);c[s]++;print(c[s]==1?s:s"-"(c[s]-1))}' README.md)
-          fail=0
-          for t in $(grep -oE '\]\(#[a-z0-9-]+\)' README.md | sed -E 's/.*#//; s/\)$//' | sort -u); do
-            printf '%s\n' "$anchors" | grep -qxF "$t" || { echo "Broken anchor link: #$t"; fail=1; }
-          done
-          [ "$fail" -eq 0 ] || { echo "Fix the anchor link(s) or heading(s) above."; exit 1; }
+      # Fail if any markdown link is broken — in-page anchors, relative
+      # .md targets, and cross-file anchors, across every tracked *.md
+      # file (GitHub slug rules, fence-aware, duplicate -N suffixing).
+      # Non-markdown targets and external URLs are out of scope by
+      # design; see tools/check-links.sh.
+      - name: Markdown links resolve
+        run: bash tools/check-links.sh
 
   # Compile-check the module against the runner's stock generic headers and
   # the newest HWE headers.  Compile only — the module is never loaded.

@@ -95,13 +95,14 @@ Every push and pull request runs (see `.github/workflows/ci.yml`):
   plus an Ubuntu 24.04 container (oldest supported LTS floor)
 - `make W=1` and sparse (`make C=1`), both required clean
 - device tree overlay compilation
-- two README consistency checks that are easy to trip:
+- two documentation consistency checks that are easy to trip:
   - **Repository layout** — every tracked file must appear in the
     README's "Repository layout" tree.  If you add a file, add it to
     the tree.
-  - **Anchor links** — every in-page `[...](#anchor)` link must
-    resolve to a heading.  If you rename or remove a heading, fix its
-    cross-references.
+  - **Markdown links** — `tools/check-links.sh` validates every link
+    in every tracked `.md` file: in-page `[...](#anchor)` links,
+    relative `.md` targets, and cross-file anchors.  If you rename or
+    remove a heading, or move a file, fix its cross-references.
 
 ## Code style
 

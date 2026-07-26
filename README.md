@@ -1173,9 +1173,11 @@ x120x-dkms/
 │   ├── test-ini-blocks.sh
 │   ├── test-args.sh
 │   ├── test-persist.sh
-│   └── test-collect-debug.sh
+│   ├── test-collect-debug.sh
+│   └── test-check-links.sh
 ├── tools/
-│   └── collect-debug.sh      — one-shot diagnostics paste (see Troubleshooting)
+│   ├── collect-debug.sh      — one-shot diagnostics paste (see Troubleshooting)
+│   └── check-links.sh        — markdown link checker (run by CI)
 └── .github/
     ├── dependabot.yml        — weekly GitHub Actions updates
     ├── workflows/ci.yml      — CI: shell, module build, overlay
