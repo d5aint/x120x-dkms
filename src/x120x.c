@@ -470,6 +470,15 @@ static int x120x_clear_alert(struct x120x_chip *chip)
  * under a spinlock.  We use a mutex for chip->lock so this is safe.
  * ---------------------------------------------------------------------- */
 
+/**
+ * x120x_gpio_get() - read a GPIO through the descriptor API
+ * @desc: GPIO descriptor, may be NULL
+ *
+ * May sleep; chip->lock is a mutex, so calling with it held is safe.
+ *
+ * Return: the GPIO value (0/1), or 0 when @desc is NULL — the safe
+ * default for a GPIO the board does not provide.
+ */
 static int x120x_gpio_get(struct gpio_desc *desc)
 {
 	if (!desc)
@@ -477,6 +486,13 @@ static int x120x_gpio_get(struct gpio_desc *desc)
 	return gpiod_get_value_cansleep(desc);
 }
 
+/**
+ * x120x_gpio_set() - write a GPIO through the descriptor API
+ * @desc: GPIO descriptor; a NULL descriptor is silently ignored
+ * @val: value to drive (0 or 1)
+ *
+ * May sleep; chip->lock is a mutex, so calling with it held is safe.
+ */
 static void x120x_gpio_set(struct gpio_desc *desc, int val)
 {
 	if (desc)
@@ -517,6 +533,19 @@ static void x120x_gpio_set(struct gpio_desc *desc, int val)
  * boards, which the author has not tested.
  * ---------------------------------------------------------------------- */
 
+/**
+ * x120x_do_poweroff() - sys-off handler: pulse the UPS power-off GPIO
+ * @data: sys-off callback data carrying the chip pointer
+ *
+ * Registered with SYS_OFF_MODE_POWER_OFF_PREPARE on board variants
+ * whose UPS needs a GPIO pulse to cut power after shutdown (see the
+ * section comment above).  Drives the GPIO high for 3 s, then
+ * releases it; the UPS cuts its 5 V rail once the kernel completes
+ * its shutdown sequence.
+ *
+ * Return: NOTIFY_DONE always — without a power-off GPIO there is
+ * nothing to do, and after the pulse the shutdown continues.
+ */
 static int x120x_do_poweroff(struct sys_off_data *data)
 {
 	struct x120x_chip *chip = data->cb_data;
@@ -533,6 +562,17 @@ static int x120x_do_poweroff(struct sys_off_data *data)
 	return NOTIFY_DONE;
 }
 
+/**
+ * x120x_poll_work() - periodic poll: read the gauge, drive the charger
+ * @work: the work_struct embedded in struct x120x_chip
+ *
+ * Runs every X120X_POLL_MS (and immediately on probe, resume, and
+ * external-power change).  Reads VCELL and SOC, updates the cached
+ * state under chip->lock, runs dead-battery detection, applies the
+ * two-threshold charge hysteresis to the charge-control GPIO, and
+ * emits power_supply_changed() for whichever supplies changed.
+ * Reschedules itself.
+ */
 static void x120x_poll_work(struct work_struct *work)
 {
 	struct x120x_chip *chip =
@@ -888,6 +928,17 @@ static enum power_supply_property x120x_battery_props[] = {
 	POWER_SUPPLY_PROP_SCOPE,
 };
 
+/**
+ * x120x_battery_get_property() - power_supply getter for the battery
+ * @psy: the x120x-battery power_supply
+ * @psp: property being read
+ * @val: result
+ *
+ * Serves every property from the cached state maintained by the poll
+ * loop — no I2C traffic on the sysfs read path.
+ *
+ * Return: 0 on success, -EINVAL for unsupported properties.
+ */
 static int x120x_battery_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
@@ -1071,6 +1122,15 @@ static int x120x_battery_get_property(struct power_supply *psy,
 	return 0;
 }
 
+/**
+ * x120x_battery_external_power_changed() - upstream supply changed
+ * @psy: the x120x-battery power_supply
+ *
+ * Called by the power_supply core when a supply feeding this battery
+ * (x120x-ac) changes state.  Re-polls immediately so battery status
+ * flips promptly on plug/unplug instead of waiting out the poll
+ * interval.
+ */
 static void x120x_battery_external_power_changed(struct power_supply *psy)
 {
 	struct x120x_chip *chip = power_supply_get_drvdata(psy);
@@ -1087,6 +1147,14 @@ static enum power_supply_property x120x_ac_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
+/**
+ * x120x_ac_get_property() - power_supply getter for the AC adapter
+ * @psy: the x120x-ac power_supply
+ * @psp: property being read
+ * @val: result
+ *
+ * Return: 0 on success, -EINVAL for any property other than ONLINE.
+ */
 static int x120x_ac_get_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
@@ -1126,6 +1194,20 @@ static enum power_supply_property x120x_charger_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD,
 };
 
+/**
+ * x120x_charger_get_property() - power_supply getter for the charger
+ * @psy: the x120x-charger power_supply
+ * @psp: property being read
+ * @val: result
+ *
+ * ONLINE mirrors AC presence; STATUS distinguishes an actively
+ * charging charger from one inhibited by the hysteresis band;
+ * CHARGE_TYPE reports Fast vs Long Life; the two threshold
+ * properties report the Long Life band even in Fast mode (Fast uses
+ * a fixed band the standard sysfs interface cannot express).
+ *
+ * Return: 0 on success, -EINVAL for unsupported properties.
+ */
 static int x120x_charger_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
@@ -1175,6 +1257,23 @@ static int x120x_charger_get_property(struct power_supply *psy,
 	return 0;
 }
 
+/**
+ * x120x_charger_set_property() - power_supply setter for the charger
+ * @psy: the x120x-charger power_supply
+ * @psp: property being written
+ * @val: value to set
+ *
+ * Handles the Fast / Long Life charge_type switch and the
+ * conservation-band thresholds.  On boards without charge control a
+ * Long Life or threshold write is rejected with -EOPNOTSUPP (a Fast
+ * write is an accepted no-op); threshold writes are range-checked
+ * and must keep start < end.  A charge_type write also updates
+ * conservation_mode_default so the udev persistence hook can save
+ * the mode across reboots.
+ *
+ * Return: 0 on success, -EOPNOTSUPP without charge control, -EINVAL
+ * for out-of-range values or unsupported properties.
+ */
 static int x120x_charger_set_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       const union power_supply_propval *val)
@@ -1276,6 +1375,15 @@ static int x120x_charger_set_property(struct power_supply *psy,
 	return 0;
 }
 
+/**
+ * x120x_charger_property_is_writeable() - sysfs writability for the charger
+ * @psy: the x120x-charger power_supply
+ * @psp: property being queried
+ *
+ * Return: nonzero for charge_type and the two thresholds when the
+ * board has charge control; 0 otherwise, making the files read-only
+ * exactly as the probe warning promises.
+ */
 static int x120x_charger_property_is_writeable(struct power_supply *psy,
 						enum power_supply_property psp)
 {
@@ -1371,6 +1479,16 @@ static const struct power_supply_desc x120x_charger_desc = {
  *   node_hwmon_energy_joules{chip="x120x",sensor="energy1"}
  * ---------------------------------------------------------------------- */
 
+/**
+ * x120x_hwmon_is_visible() - select which hwmon channels exist
+ * @data: driver data (unused)
+ * @type: hwmon sensor type
+ * @attr: attribute within @type
+ * @channel: channel index
+ *
+ * Return: 0444 for the supported read-only channels (in0, curr1,
+ * power1, energy1 and their labels), 0 to hide everything else.
+ */
 static umode_t x120x_hwmon_is_visible(const void *data,
 				       enum hwmon_sensor_types type,
 				       u32 attr, int channel)
@@ -1418,6 +1536,19 @@ static umode_t x120x_hwmon_is_visible(const void *data,
 	return 0;
 }
 
+/**
+ * x120x_hwmon_read() - hwmon numeric read callback
+ * @dev: hwmon device
+ * @type: hwmon sensor type
+ * @attr: attribute within @type
+ * @channel: channel index
+ * @val: result, in hwmon canonical units
+ *
+ * Serves values from the cached driver state (no I2C traffic), with
+ * the unit conversions documented in the section comment above.
+ *
+ * Return: 0 on success, -EOPNOTSUPP for unsupported channels.
+ */
 static int x120x_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 			     u32 attr, int channel, long *val)
 {
@@ -1482,6 +1613,16 @@ static int x120x_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 	}
 }
 
+/**
+ * x120x_hwmon_read_string() - hwmon label read callback
+ * @dev: hwmon device (unused)
+ * @type: hwmon sensor type
+ * @attr: attribute within @type
+ * @channel: channel index
+ * @str: receives a pointer to the constant label string
+ *
+ * Return: 0 on success, -EOPNOTSUPP for channels without a label.
+ */
 static int x120x_hwmon_read_string(struct device *dev,
 				    enum hwmon_sensor_types type,
 				    u32 attr, int channel, const char **str)
@@ -1544,6 +1685,15 @@ static const struct hwmon_chip_info x120x_hwmon_chip_info = {
  * PM ops
  * ---------------------------------------------------------------------- */
 
+/**
+ * x120x_suspend() - PM callback: stop polling before suspend
+ * @dev: the I2C client device
+ *
+ * Cancels the poll work synchronously so no I2C transfer is in
+ * flight when the controller suspends.
+ *
+ * Return: 0 always.
+ */
 static int x120x_suspend(struct device *dev)
 {
 	struct x120x_chip *chip = i2c_get_clientdata(to_i2c_client(dev));
@@ -1552,6 +1702,12 @@ static int x120x_suspend(struct device *dev)
 	return 0;
 }
 
+/**
+ * x120x_resume() - PM callback: restart polling after resume
+ * @dev: the I2C client device
+ *
+ * Return: 0 always.
+ */
 static int x120x_resume(struct device *dev)
 {
 	struct x120x_chip *chip = i2c_get_clientdata(to_i2c_client(dev));
@@ -1574,6 +1730,18 @@ static DEFINE_SIMPLE_DEV_PM_OPS(x120x_pm_ops, x120x_suspend, x120x_resume);
  */
 static bool x120x_probe_bound;
 
+/**
+ * x120x_probe() - bind the driver to the fuel gauge
+ * @client: I2C client, from device tree or the x120x_init() fallback
+ *
+ * Validates module parameters, verifies a MAX1704x responds,
+ * configures board-variant behaviour (power-off GPIO, charge-control
+ * availability), acquires the GPIOs, registers the three
+ * power_supply devices and the hwmon device, and starts the poll
+ * loop.  Every resource is devm-managed.
+ *
+ * Return: 0 on success, negative errno on failure.
+ */
 static int x120x_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -1885,6 +2053,13 @@ static int x120x_probe(struct i2c_client *client)
 	return 0;
 }
 
+/**
+ * x120x_remove() - unbind: stop the poll loop
+ * @client: I2C client being unbound
+ *
+ * Only the poll work needs explicit teardown; every other resource
+ * is devm-managed and released by the core after this returns.
+ */
 static void x120x_remove(struct i2c_client *client)
 {
 	struct x120x_chip *chip = i2c_get_clientdata(client);
@@ -1952,6 +2127,18 @@ static struct i2c_driver x120x_driver = {
 
 static struct i2c_client *x120x_i2c_client;
 
+/**
+ * x120x_init() - module init: register the driver, with manual fallback
+ *
+ * Registers the I2C driver; when device tree has not bound it (no
+ * overlay loaded), probes the i2c_addrs candidate addresses on bus
+ * i2c_bus and instantiates the client manually.  See the section
+ * comment above for the detection logic.
+ *
+ * Return: 0 on success — including when no gauge is found, so the
+ * module stays loaded and logs why — or negative errno if driver
+ * registration fails.
+ */
 static int __init x120x_init(void)
 {
 	struct i2c_adapter *adapter;
@@ -1998,6 +2185,12 @@ static int __init x120x_init(void)
 	return 0;
 }
 
+/**
+ * x120x_exit() - module exit: undo the manual client and the driver
+ *
+ * Unregisters the manually-instantiated client, if the init fallback
+ * created one, before deleting the driver.
+ */
 static void __exit x120x_exit(void)
 {
 	if (x120x_i2c_client) {

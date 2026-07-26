@@ -24,6 +24,11 @@ Release history of [x120x-dkms](README.md), newest first.
   defaults with a warning.  Previously e.g. `conservation_end=200` in
   `/etc/modprobe.d` loaded silently and the stop threshold never
   triggered.  Mirrors the existing `battery_mah` probe-time clamp.
+- Full kernel-doc coverage: every function now carries a validated
+  kernel-doc comment (22 blocks, up from 3 — the struct and the two
+  register helpers).  `scripts/kernel-doc -Wall -none` reports zero
+  warnings; note that CI's `W=1` check only validates blocks that
+  exist, so coverage itself is not CI-enforced.
 - `MODULE_LICENSE` changed from `"GPL v2"` to the canonical `"GPL"`,
   deferring to the SPDX `GPL-2.0-or-later` headers as the authoritative
   license statement (the README's License section now says the same —
