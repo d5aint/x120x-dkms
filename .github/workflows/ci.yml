@@ -198,11 +198,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Fetched from GitHub's mirror of torvalds/linux: kernel.org's
+      # cgit frontend rejects fetches from GitHub-runner IPs (fast 4xx),
+      # and the CI already runs on GitHub, so this adds no new
+      # dependency.  Same files, same tag pin — verified byte-identical
+      # to the kernel.org copies.
       - name: Fetch checkpatch.pl (${{ env.KERNEL_TAG }})
         run: |
-          base="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/scripts"
+          base="https://raw.githubusercontent.com/torvalds/linux/${KERNEL_TAG}/scripts"
           for f in checkpatch.pl spelling.txt const_structs.checkpatch; do
-            curl -sf "${base}/${f}?h=${KERNEL_TAG}" -o "${RUNNER_TEMP}/${f}"
+            curl -sf "${base}/${f}" -o "${RUNNER_TEMP}/${f}"
           done
 
       - name: checkpatch (--no-tree, documented ignores)
