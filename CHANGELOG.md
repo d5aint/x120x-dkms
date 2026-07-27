@@ -2,6 +2,13 @@
 
 Release history of [x120x-dkms](README.md), newest first.
 
+### Unreleased
+
+**Documentation**
+- README now shows the driver in use: screenshots of the battery icon
+  in the panel tray, `upower -i` output, and the GNOME Power Statistics
+  window (`docs/images/`, captured on the maintainer's Pi 5 / X1206).
+
 ### v0.4.8 — Update-safe install, uninstall --help, kernel floor, docs completion
 
 **CI**

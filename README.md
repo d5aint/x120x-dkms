@@ -19,6 +19,8 @@ clean undervoltage shutdown, and selectable Long Life battery
 preservation mode.  No custom scripts, no daemons, no polling
 loops.
 
+![The X120x pack as a battery icon in the Raspberry Pi OS panel tray, green and on mains — indistinguishable from a laptop battery.](docs/images/battery-tray.png)
+
 ## Getting started
 
 If you just want to get up and running quickly, here is everything you
@@ -113,6 +115,8 @@ including Lite/headless):
 upower -i /org/freedesktop/UPower/devices/battery_x120x_battery
 ```
 
+![upower -i output for the x120x battery: vendor SupTronics, model X120x, state fully-charged, 73.55 Wh of 74 Wh, 4.18 V, 100% capacity.](docs/images/upower-info.png)
+
 On desktop installs a battery icon also appears in the taskbar, and
 `gnome-power-statistics` shows live battery percentage, voltage,
 energy, charge rate, and history graphs — all read directly from the
@@ -122,6 +126,8 @@ driver via UPower.  No configuration needed:
 sudo apt install gnome-power-manager
 gnome-power-statistics
 ```
+
+![GNOME Power Statistics with the x120x battery selected — Vendor SupTronics, Model X120x, State Charged, Energy 73.6 of 74.0 Wh.](docs/images/power-statistics.png)
 
 That is all that is needed for a fully working installation.  The
 rest of this document covers the driver interface, hardware details,
@@ -1038,7 +1044,11 @@ x120x-dkms/
 │   ├── battery-profiles.md   — Fast vs. Long Life, with measured data
 │   ├── incidents.md          — the three production incident write-ups
 │   ├── manual-install.md     — step-by-step install without install.sh
-│   └── migration.md          — replacing direct-GPIO scripts with sysfs
+│   ├── migration.md          — replacing direct-GPIO scripts with sysfs
+│   └── images/               — README screenshots
+│       ├── battery-tray.png       — panel battery icon
+│       ├── upower-info.png        — upower -i output
+│       └── power-statistics.png   — GNOME Power Statistics window
 ├── .gitignore                — build-artifact ignore rules
 ├── Makefile                  — DKMS build entry point
 ├── dkms.conf                 — DKMS package definition
