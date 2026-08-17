@@ -485,15 +485,32 @@ SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 RPI_EEPROM_CONFIG="${RPI_EEPROM_CONFIG:-rpi-eeprom-config}"
 DT_MODEL_PATH="${DT_MODEL_PATH:-/proc/device-tree/model}"
 
-# Detect Pi model for correct boot path
+# Detect the firmware/boot path.  Raspberry Pi OS mounts the firmware
+# partition at /boot/firmware (newer) or writes directly to /boot (older);
+# Ubuntu for Raspberry Pi also mounts it at /boot/firmware.  All three put
+# config.txt at the root of that directory.
 if [ -f /boot/firmware/config.txt ]; then
     CONFIG_TXT="/boot/firmware/config.txt"
-    OVERLAYS_DIR="/boot/firmware/overlays"
+    BOOT_DIR="/boot/firmware"
 elif [ -f /boot/config.txt ]; then
     CONFIG_TXT="/boot/config.txt"
-    OVERLAYS_DIR="/boot/overlays"
+    BOOT_DIR="/boot"
 else
-    die "Cannot find config.txt — is this a Raspberry Pi running Raspberry Pi OS?"
+    die "Cannot find config.txt — is this a Raspberry Pi running Raspberry Pi OS or Ubuntu?"
+fi
+
+# Resolve the overlays directory.  Raspberry Pi OS keeps overlays in an
+# "overlays" subdirectory; Ubuntu's flash-kernel layout keeps the active
+# kernel's overlays under "current/overlays" instead.  Prefer the
+# flash-kernel path when it exists (it is a Debian/Ubuntu-only convention
+# and never present on Raspberry Pi OS), otherwise fall back to the
+# standard location.
+if [ -d "${BOOT_DIR}/current/overlays" ]; then
+    OVERLAYS_DIR="${BOOT_DIR}/current/overlays"
+elif [ -d "${BOOT_DIR}/overlays" ]; then
+    OVERLAYS_DIR="${BOOT_DIR}/overlays"
+else
+    die "Cannot find an overlays directory under ${BOOT_DIR} (looked for current/overlays and overlays)"
 fi
 
 # -------------------------------------------------------------------------

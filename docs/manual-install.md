@@ -101,6 +101,9 @@ sudo cp x120x.dtbo /boot/firmware/overlays/
 
 # Raspberry Pi 4 and earlier:
 sudo cp x120x.dtbo /boot/overlays/
+
+# Ubuntu (flash-kernel layout) — overlays live under current/:
+sudo cp x120x.dtbo /boot/firmware/current/overlays/
 ```
 
 #### Step 7 — Enable the overlay at boot

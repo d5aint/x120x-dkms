@@ -4,6 +4,16 @@ Release history of [x120x-dkms](README.md), newest first.
 
 ### Unreleased
 
+**Installer**
+- Ubuntu for Raspberry Pi is now supported.  `install.sh` detected the
+  firmware partition at `/boot/firmware` but hardcoded the overlays
+  subdirectory as `overlays/`, whereas Ubuntu's flash-kernel layout keeps
+  the active kernel's overlays under `current/overlays/`.  The installer
+  now probes for `current/overlays` (a Debian/Ubuntu-only convention,
+  never present on Raspberry Pi OS) and falls back to `overlays`, so the
+  overlay lands where the bootloader reads it on both distributions.
+  Reported by @AbbynatorNZ on Ubuntu 26.04 LTS / Pi 5 / X1201 V1.1 (#5).
+
 **Documentation**
 - README now shows the driver in use: screenshots of the battery icon
   in the panel tray, `upower -i` output, and the GNOME Power Statistics
