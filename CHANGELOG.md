@@ -2,7 +2,7 @@
 
 Release history of [x120x-dkms](README.md), newest first.
 
-### Unreleased
+### v0.4.9 — Ubuntu install support
 
 **Installer**
 - Ubuntu for Raspberry Pi is now supported.  `install.sh` detected the

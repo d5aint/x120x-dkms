@@ -2205,7 +2205,7 @@ module_exit(x120x_exit);
 
 MODULE_AUTHOR("Edvard Fielding <mor-lock@users.noreply.github.com>");
 MODULE_DESCRIPTION("SupTronics UPS HAT power supply driver (X120x, X728, X708, X729)");
-MODULE_VERSION("0.4.8");
+MODULE_VERSION("0.4.9");
 /*
  * "GPL" is the canonical MODULE_LICENSE string for GPL-compatible
  * modules; the precise license (GPL-2.0-or-later) is expressed by the
