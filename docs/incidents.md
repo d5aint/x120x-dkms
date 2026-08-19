@@ -3,9 +3,10 @@
 Part of [x120x-dkms](../README.md).
 
 This driver was developed on hardware running unattended, always-on.
-Two real power incidents — plus one field-discovered driver bug —
+Two real power incidents, plus two issues surfaced by users in the
+field — a driver bug and a distribution-packaging interaction —
 exposed failure modes that no lab test would have found, and drove
-significant hardening of the driver.
+significant hardening of the driver and its installer.
 
 A companion daemon running on the same system reads the driver's sysfs
 nodes continuously, logs every reading to a SQLite database, and
@@ -410,3 +411,129 @@ elevated power draw and slightly shortened battery runtime on any
 host.  Future reports that don't match the original "loud fan" shape
 should still trigger the same diagnostic (`uevent_seqnum` delta) as
 the first step.
+
+---
+
+### Incident 4 — Driver vanishes after an Ubuntu update (2026-08)
+
+#### What happened
+
+A user running **Ubuntu 26.04 LTS on a Raspberry Pi 5** with a Geekworm
+X1201 ([issue #5](https://github.com/mor-lock/x120x-dkms/issues/5))
+installed the driver, confirmed it working — battery icon, `upower`
+readings, the lot — and then, after an unrelated `sudo apt upgrade`,
+found the battery system simply gone.  GNOME Power Statistics showed no
+battery device; the driver had not loaded at all after the reboot that
+followed the update.  Reinstalling the driver brought it back every
+time, but the next OS update broke it again.
+
+The first hypotheses were wrong, and ruling them out mattered.  A full
+battery drain followed by a cold boot was tested deliberately and did
+**not** reproduce the failure — the driver came up fine — which
+eliminated deep discharge and any hardware/fuel-gauge power-up state as
+the cause.  The common factor in every break was an Ubuntu package
+update, not a power event.
+
+The diagnostic capture pinned it down.  After a break, with the driver
+dead, `/boot/firmware/config.txt` **still contained** the installer's
+lines:
+
+```
+[all]
+# SupTronics X120x UPS HAT driver
+dtoverlay=x120x
+gpio=6=pu
+```
+
+but the overlay file the line refers to was gone:
+
+```
+ls: cannot access '/boot/firmware/current/overlays/x120x.dtbo': No such file or directory
+```
+
+The config was intact; the overlay it pointed at had been deleted.  A
+dangling `dtoverlay=` reference loads nothing, so the driver never
+bound.
+
+#### Root cause analysis
+
+**Ubuntu's `flash-kernel` repopulates the overlays directory on every
+update, discarding out-of-tree files.**  Ubuntu for Raspberry Pi boots
+via `flash-kernel`, which owns `/boot/firmware/current/overlays/`
+(the `current/` prefix is set by `os_prefix=current/` in `config.txt`)
+and lays that directory back down from the kernel and firmware packages
+whenever either is upgraded.  The driver's overlay, `x120x.dtbo`, is not
+part of any package — the installer compiles it locally and copies it in
+— so a `flash-kernel` refresh simply drops it.  `config.txt` is a
+separate file that `flash-kernel` does not rewrite, which is why the
+`dtoverlay=x120x` line survived while the file it names did not.
+
+**Raspberry Pi OS is not affected**, and confirming that shaped the fix.
+Raspberry Pi OS does not use `flash-kernel` or the `current/` prefix;
+its `raspberrypi-firmware` / `raspberrypi-kernel` packages overwrite
+their *own* shipped overlays in `/boot/firmware/overlays/` but do not
+purge the directory, so a custom `x120x.dtbo` is left alone.  This was
+verified directly on the maintainer's own Raspberry Pi OS system: a
+kernel-and-firmware upgrade (`linux-image-rpi-v8` 6.12.75 → 6.12.96,
+`raspi-firmware` bumped, the boot-partition firmware files rewritten)
+left the driver's overlay in place with its original timestamp,
+untouched.  The two distributions genuinely differ, so the fix is
+Ubuntu-only and Raspberry Pi OS installs are left byte-for-byte
+unchanged.
+
+**A secondary failure made recovery worse.**  When the user re-ran the
+installer to recover, it aborted at `dkms add` with *"DKMS tree already
+contains: x120x/…"*.  Because that abort happened before the overlay
+copy step, the recovery reinstall died **without** putting the overlay
+back — turning a one-line fix into a multi-step fight (uninstall,
+reinstall, re-enable I²C, re-clone, reboot) before the driver finally
+returned.  An installer meant to be the recovery tool was itself
+brittle in exactly the state a recovery starts from.
+
+#### What was added to the installer
+
+**Overlay-persistence apt hook (Ubuntu only).**  The installer now
+stashes the compiled overlay at `/usr/local/lib/x120x-overlay.dtbo` and
+registers a `DPkg::Post-Invoke` hook
+(`/etc/apt/apt.conf.d/99-x120x-overlay`) that runs a small helper,
+`/usr/local/lib/x120x-restore-overlay.sh`, at the end of **every** apt
+transaction.  `Post-Invoke` runs after all package work — including the
+`flash-kernel` refresh that does the wiping — so the overlay is back in
+place before the machine is ever rebooted into the updated kernel.  The
+helper is written to be unable to disrupt package management: it runs
+with `set +e`, always exits 0, and does nothing at all unless the
+overlay is configured in `config.txt` yet missing from the active
+overlays directory and a stashed copy exists.  The whole mechanism is
+gated on the Ubuntu `…/current/overlays` layout and is never installed
+on Raspberry Pi OS.
+
+**Idempotent `dkms add`.**  The installer no longer treats an
+already-registered DKMS tree as fatal: if `dkms add` reports the version
+is already present, it verifies the tree exists and continues to build
+and install rather than aborting.  A recovery re-run now always reaches
+the overlay step, so re-running the installer reliably restores a broken
+install instead of dying at the first hurdle.
+
+**Uninstaller parity.**  `uninstall.sh` now resolves the Ubuntu
+`current/overlays` layout the same way the installer does (previously it
+only looked in `…/overlays`, so it never cleaned up on Ubuntu), and it
+removes the apt hook, helper, and stash.
+
+#### Operational lesson
+
+**On Ubuntu / `flash-kernel`, anything you place in the boot partition
+by hand does not survive a package update.**  The active-kernel overlay
+directory is owned by `flash-kernel` and rebuilt from packages; an
+out-of-tree overlay must be re-applied by a hook, not merely copied once
+at install time.  This is a distribution-integration failure mode with
+no equivalent on Raspberry Pi OS, and it is invisible until the *second*
+kernel update — the install works, the first reboot works, and only a
+later `apt upgrade` exposes it.
+
+The fast diagnostic is to check the two halves of the overlay reference
+independently: confirm `dtoverlay=x120x` is present in `config.txt`
+**and** that `x120x.dtbo` actually exists in the active overlays
+directory (`/boot/firmware/current/overlays/` on Ubuntu,
+`/boot/firmware/overlays/` on Raspberry Pi OS).  A present line pointing
+at an absent file is the signature of a package update having reclaimed
+the directory.

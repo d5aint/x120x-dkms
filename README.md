@@ -1050,7 +1050,7 @@ x120x-dkms/
 ├── RELEASING.md              — on-hardware release checklist
 ├── docs/
 │   ├── battery-profiles.md   — Fast vs. Long Life, with measured data
-│   ├── incidents.md          — the three production incident write-ups
+│   ├── incidents.md          — the field incident write-ups
 │   ├── manual-install.md     — step-by-step install without install.sh
 │   ├── migration.md          — replacing direct-GPIO scripts with sysfs
 │   └── images/               — README screenshots
@@ -1119,9 +1119,9 @@ checks a pull request must pass.
 
 ## Real-world incidents that shaped this driver
 
-The three production incidents behind this driver's design — deep
-discharge and cell destruction, an undetected grid return, and a
-uevent storm — are written up in full in
+The field incidents behind this driver's design — deep discharge and
+cell destruction, an undetected grid return, a uevent storm, and a
+driver wiped by an Ubuntu package update — are written up in full in
 [docs/incidents.md](docs/incidents.md).
 
 ## Changelog
