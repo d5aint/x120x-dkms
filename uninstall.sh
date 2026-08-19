@@ -9,10 +9,12 @@
 # What this script removes:
 #   - DKMS kernel module (all installed kernel versions)
 #   - DKMS source tree from /usr/src/
-#   - Device tree overlay from /boot/firmware/overlays/ (or /boot/overlays/)
+#   - Device tree overlay from the overlays dir (…/overlays or, on Ubuntu,
+#     …/current/overlays)
 #   - dtoverlay=x120x and gpio=6=pu lines from config.txt
 #   - /etc/modprobe.d/x120x.conf
 #   - Charge mode persistence script and udev rule
+#   - Overlay-persistence apt hook, helper, and stash (Ubuntu installs only)
 #   - The logind drop-in /etc/systemd/logind.conf.d/90-x120x.conf
 #   - x120x-dkms marker-wrapped blocks from /etc/UPower/UPower.conf and
 #     — on systems installed before the drop-in existed — from
@@ -72,10 +74,12 @@ Removes the x120x-dkms driver and all changes made by install.sh.
 What this script removes:
   - DKMS kernel module (all installed kernel versions)
   - DKMS source tree from /usr/src/
-  - Device tree overlay from /boot/firmware/overlays/ (or /boot/overlays/)
+  - Device tree overlay from the overlays dir (…/overlays or, on Ubuntu,
+    …/current/overlays)
   - dtoverlay=x120x and gpio=6=pu lines from config.txt
   - /etc/modprobe.d/x120x.conf
   - Charge mode persistence script and udev rule
+  - Overlay-persistence apt hook, helper, and stash (Ubuntu installs only)
   - The logind drop-in /etc/systemd/logind.conf.d/90-x120x.conf
   - x120x-dkms marker blocks from UPower.conf and — on installs from
     before the drop-in existed — from logind.conf, plus legacy bare
@@ -103,23 +107,48 @@ done
 
 PKG_NAME="x120x"
 
-# Detect Pi model for correct boot path
+# Detect the firmware/boot path and overlays directory, matching install.sh:
+# Raspberry Pi OS uses .../overlays, Ubuntu's flash-kernel layout uses
+# .../current/overlays.
 if [ -f /boot/firmware/config.txt ]; then
     CONFIG_TXT="/boot/firmware/config.txt"
-    OVERLAYS_DIR="/boot/firmware/overlays"
+    BOOT_DIR="/boot/firmware"
 elif [ -f /boot/config.txt ]; then
     CONFIG_TXT="/boot/config.txt"
-    OVERLAYS_DIR="/boot/overlays"
+    BOOT_DIR="/boot"
 else
     warn "Cannot find config.txt — skipping overlay and config.txt cleanup"
     CONFIG_TXT=""
+    BOOT_DIR=""
+fi
+
+if [ -z "${BOOT_DIR}" ]; then
     OVERLAYS_DIR=""
+elif [ -d "${BOOT_DIR}/current/overlays" ]; then
+    OVERLAYS_DIR="${BOOT_DIR}/current/overlays"
+else
+    OVERLAYS_DIR="${BOOT_DIR}/overlays"
 fi
 
 require_root
 
 info "x120x-dkms uninstaller"
 echo
+
+# Neutralise the overlay-restore apt hook FIRST, before anything it could
+# put back.  On Ubuntu the DPkg::Post-Invoke hook re-copies the overlay
+# after any apt transaction, so removing it up front guarantees nothing
+# resurrects the overlay while the steps below tear the install down.
+# (Ubuntu / flash-kernel installs only; absent on Raspberry Pi OS.)
+OVERLAY_STASH="/usr/local/lib/x120x-overlay.dtbo"
+RESTORE_SCRIPT="/usr/local/lib/x120x-restore-overlay.sh"
+APT_HOOK="/etc/apt/apt.conf.d/99-x120x-overlay"
+for f in "${APT_HOOK}" "${RESTORE_SCRIPT}" "${OVERLAY_STASH}"; do
+    if [ -f "${f}" ]; then
+        rm -f "${f}"
+        ok "Removed ${f}"
+    fi
+done
 
 # -------------------------------------------------------------------------
 # Step 1: Unload module if currently loaded

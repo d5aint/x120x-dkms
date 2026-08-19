@@ -162,6 +162,13 @@ x120x 1-0036: x120x UPS ready (battery=x120x-battery ac=x120x-ac charger=x120x-c
   that `dtoverlay=x120x` is present in `/boot/firmware/config.txt`
   (under the `[all]` section), and that the reboot actually happened —
   reboot again if unsure.
+  - **On Ubuntu, if the driver worked and then vanished after an
+    `apt upgrade`:** the update repopulated `/boot/firmware/current/overlays/`
+    and deleted the overlay file (`ls` there shows no `x120x.dtbo`) even
+    though `dtoverlay=x120x` is still in `config.txt`.  The installer sets
+    up an apt hook that restores it automatically after each update; if you
+    installed before that hook existed, re-run `sudo bash install.sh` once
+    to install both the overlay and the hook, then reboot.
 - **Probe or I²C errors** (e.g. `MAX1704x` not found) — the board is
   not making contact.  Power down, re-seat the Pi firmly on the UPS
   board's pogo pins, and confirm you passed the right `--board`.

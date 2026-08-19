@@ -578,8 +578,21 @@ done < <(dkms status "${PKG_NAME}" 2>/dev/null \
     | grep -v "^${PKG_VERSION}$" \
     | sort -uV)
 
-dkms add     "${PKG_NAME}/${PKG_VERSION}" \
-    || die "dkms add failed"
+# `dkms add` errors out if this version's tree is already registered
+# (e.g. a previous run aborted after add but before build/install, or the
+# remove above could not fully clear a wedged entry).  That is not a real
+# failure — the source is present and can still be built — so tolerate it
+# and only treat a genuinely absent tree as fatal.  Without this an
+# already-added tree aborts the whole installer before the overlay is
+# (re)installed in Step 6, leaving a broken driver a reinstall cannot fix.
+if ! add_out=$(dkms add "${PKG_NAME}/${PKG_VERSION}" 2>&1); then
+    if dkms status "${PKG_NAME}/${PKG_VERSION}" 2>/dev/null | grep -q .; then
+        info "  ${PKG_NAME}/${PKG_VERSION} already in the DKMS tree — continuing"
+    else
+        printf '%s\n' "${add_out}" >&2
+        die "dkms add failed"
+    fi
+fi
 dkms build   "${PKG_NAME}/${PKG_VERSION}" \
     || die "dkms build failed — check /var/lib/dkms/${PKG_NAME}/${PKG_VERSION}/build/make.log"
 dkms install "${PKG_NAME}/${PKG_VERSION}" \
@@ -667,6 +680,85 @@ info "Step 6/10 — Installing device tree overlay to ${OVERLAYS_DIR}..."
 cp "${DTBO_TMPDIR}/x120x.dtbo" "${OVERLAYS_DIR}/" \
     || die "Failed to copy overlay to ${OVERLAYS_DIR}"
 ok "Overlay installed"
+
+# Overlay persistence across package updates (Ubuntu / flash-kernel only).
+#
+# On Ubuntu's flash-kernel layout the overlays directory
+# (…/current/overlays) is repopulated from the kernel/firmware packages on
+# every `apt upgrade`, which deletes this out-of-tree overlay.  config.txt
+# keeps its `dtoverlay=x120x` line, so the reference then dangles and the
+# driver silently fails to load after the next reboot (issue #5).  There is
+# no supported "user overlay" location that survives, so stash a copy and
+# register an apt hook that restores it at the end of any transaction that
+# removed it.  Raspberry Pi OS (plain overlays/) does not repopulate this
+# way and is deliberately left untouched — the block below is skipped there,
+# so a Raspberry Pi OS install is byte-for-byte unchanged.
+case "${OVERLAYS_DIR}" in
+*/current/overlays)
+    if [ -d /etc/apt/apt.conf.d ]; then
+        OVERLAY_STASH="/usr/local/lib/x120x-overlay.dtbo"
+        RESTORE_SCRIPT="/usr/local/lib/x120x-restore-overlay.sh"
+        APT_HOOK="/etc/apt/apt.conf.d/99-x120x-overlay"
+
+        mkdir -p /usr/local/lib
+        cp "${DTBO_TMPDIR}/x120x.dtbo" "${OVERLAY_STASH}" \
+            || die "Failed to stash overlay to ${OVERLAY_STASH}"
+
+        cat > "${RESTORE_SCRIPT}" << 'RESTORE_EOF'
+#!/bin/sh
+# x120x-restore-overlay.sh — restore the x120x device-tree overlay if a
+# package update (flash-kernel repopulating …/current/overlays) deleted it.
+# Called from an apt DPkg::Post-Invoke hook after every transaction.
+#
+# This runs inside apt, so it must NEVER fail a package operation: it always
+# exits 0 and changes nothing unless the overlay is genuinely configured yet
+# missing and a stashed copy exists.  Paths default to the real locations
+# and are overridable (X120X_*) for testing only.
+set +e
+STASH="${X120X_OVERLAY_STASH:-/usr/local/lib/x120x-overlay.dtbo}"
+BOOT_DIR="${X120X_BOOT_DIR:-}"
+if [ -z "${BOOT_DIR}" ]; then
+    if [ -f /boot/firmware/config.txt ]; then
+        BOOT_DIR=/boot/firmware
+    elif [ -f /boot/config.txt ]; then
+        BOOT_DIR=/boot
+    else
+        exit 0
+    fi
+fi
+CONFIG_TXT="${X120X_CONFIG_TXT:-${BOOT_DIR}/config.txt}"
+# Resolve the overlays directory exactly as install.sh does.
+if [ -d "${BOOT_DIR}/current/overlays" ]; then
+    OVERLAYS_DIR="${BOOT_DIR}/current/overlays"
+elif [ -d "${BOOT_DIR}/overlays" ]; then
+    OVERLAYS_DIR="${BOOT_DIR}/overlays"
+else
+    exit 0
+fi
+# Act only when the overlay is enabled in config.txt, its file is gone, and
+# we have a stash to restore from — otherwise this is a no-op.
+[ -f "${STASH}" ]      || exit 0
+[ -f "${CONFIG_TXT}" ] || exit 0
+grep -qE '^[[:space:]]*dtoverlay=x120x([[:space:]]|$)' "${CONFIG_TXT}" || exit 0
+[ -f "${OVERLAYS_DIR}/x120x.dtbo" ] && exit 0
+if cp "${STASH}" "${OVERLAYS_DIR}/x120x.dtbo" 2>/dev/null; then
+    logger -t x120x "restored device-tree overlay to ${OVERLAYS_DIR} after a package update" 2>/dev/null || true
+fi
+exit 0
+RESTORE_EOF
+        chmod 755 "${RESTORE_SCRIPT}"
+
+        cat > "${APT_HOOK}" << 'APTHOOK_EOF'
+// Installed by x120x-dkms — removed by uninstall.sh.
+// Restore the x120x UPS HAT device-tree overlay if a package update
+// (flash-kernel) deleted it from the boot partition.  The helper exits 0
+// and is a no-op unless the overlay is configured but missing.
+DPkg::Post-Invoke { "/usr/local/lib/x120x-restore-overlay.sh || true"; };
+APTHOOK_EOF
+        ok "Installed overlay-persistence hook (survives Ubuntu package updates)"
+    fi
+    ;;
+esac
 
 # -------------------------------------------------------------------------
 # Step 7: Enable overlay in config.txt
