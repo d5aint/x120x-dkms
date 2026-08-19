@@ -1081,7 +1081,8 @@ x120x-dkms/
 ├── tools/
 │   ├── collect-debug.sh      — one-shot diagnostics paste (see Troubleshooting)
 │   ├── check-links.sh        — markdown link checker (run by CI)
-│   └── check-versions.sh     — version-string consistency check (run by CI)
+│   ├── check-versions.sh     — version-string consistency check (run by CI)
+│   └── check-layout-tree.sh  — this tree is complete (run by CI)
 └── .github/
     ├── dependabot.yml        — weekly GitHub Actions updates
     ├── workflows/ci.yml      — CI: shell, module build, overlay
