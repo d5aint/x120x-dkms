@@ -1074,6 +1074,7 @@ x120x-dkms/
 │   ├── test-ini-blocks.sh
 │   ├── test-args.sh
 │   ├── test-persist.sh
+│   ├── test-restore-overlay.sh
 │   ├── test-collect-debug.sh
 │   ├── test-check-links.sh
 │   └── test-check-versions.sh
