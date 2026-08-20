@@ -475,7 +475,7 @@ done
 # -------------------------------------------------------------------------
 
 PKG_NAME="x120x"
-PKG_VERSION="0.4.9"
+PKG_VERSION="0.4.10"
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # External command and device-tree model path — overridable for testing.

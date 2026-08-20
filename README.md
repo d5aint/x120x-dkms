@@ -274,7 +274,7 @@ welcome.
 | Board | Pi            | OS               | Driver | Kernel | Arch    | Reporter   |
 |-------|---------------|------------------|--------|--------|---------|------------|
 | X1206 | Raspberry Pi 5 | Raspberry Pi OS  | v0.4.8 | 6.12.x | aarch64 | maintainer |
-| X1201 V1.1 | Raspberry Pi 5 | Ubuntu 26.04 LTS | v0.4.9 | — | aarch64 | [issue #5](https://github.com/mor-lock/x120x-dkms/issues/5) |
+| X1201 V1.1 | Raspberry Pi 5 | Ubuntu 26.04 LTS | v0.4.10 | — | aarch64 | [issue #5](https://github.com/mor-lock/x120x-dkms/issues/5) |
 | X1209 (+ X1002 NVMe board) | Raspberry Pi 5 | Raspberry Pi OS | v0.4.3 | — | — | [issue #2](https://github.com/mor-lock/x120x-dkms/issues/2) |
 
 ### Experimental board support

@@ -2,7 +2,7 @@
 
 Release history of [x120x-dkms](README.md), newest first.
 
-### Unreleased
+### v0.4.10 — Ubuntu package-update survival
 
 **Installer**
 - Ubuntu package updates no longer break the driver.  On Ubuntu's
@@ -26,6 +26,22 @@ Release history of [x120x-dkms](README.md), newest first.
 - `uninstall.sh` now detects the Ubuntu `current/overlays` layout the same
   way `install.sh` does, so it removes the overlay from the right place on
   Ubuntu (it previously only looked in `…/overlays`).
+
+  Confirmed end-to-end by the issue #5 reporter on Ubuntu 26.04 LTS / Pi 5 /
+  X1201: a fresh install followed by an `apt upgrade` (kernel/firmware) and a
+  reboot, with the driver still loading.
+
+**Testing / CI**
+- The README "repository layout" tree check — every tracked file must appear
+  in the layout diagram — is now `tools/check-layout-tree.sh` (CI calls the
+  script instead of an inline step), and `make test` runs it alongside
+  `check-versions.sh` and `check-links.sh`.  The unprivileged consistency
+  checks CI enforces are now reproducible with a single local `make test`.
+
+**Documentation**
+- New **Incident 4** in [docs/incidents.md](docs/incidents.md) documents the
+  Ubuntu package-update overlay wipe: the symptom, the `flash-kernel` root
+  cause, the proof that Raspberry Pi OS is unaffected, and the fix.
 
 ### v0.4.9 — Ubuntu install support
 

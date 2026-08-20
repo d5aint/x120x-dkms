@@ -537,3 +537,13 @@ directory (`/boot/firmware/current/overlays/` on Ubuntu,
 `/boot/firmware/overlays/` on Raspberry Pi OS).  A present line pointing
 at an absent file is the signature of a package update having reclaimed
 the directory.
+
+#### Resolution (v0.4.10)
+
+The apt-hook fix shipped in **v0.4.10** and was confirmed end-to-end by the
+reporter on the affected system: a fresh install, then `sudo apt upgrade`
+(pulling kernel/firmware updates), then a reboot — with the driver loading
+normally afterwards.  The hook restored the overlay during the upgrade
+transaction, so the dangling-reference failure no longer occurs.  Since the
+maintainer has no Ubuntu hardware, this field confirmation is what validated
+the fix.
