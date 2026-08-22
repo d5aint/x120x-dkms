@@ -25,6 +25,11 @@ Release history of [x120x-dkms](README.md), newest first.
   decision at emerg instead of powering off — exercises the whole
   trigger path for testing without shutting the box down).
 
+**CI**
+- The `binding` job installs `swig` before `pip install dtschema`:
+  pylibfdt has no wheel and its sdist otherwise fell back to stale
+  Python 2 bindings, crashing `dt-doc-validate` on import.
+
 **Documentation**
 - The README shutdown-chain section and Incident 1 now call out the
   systemd < 255 logind gap explicitly and document the kernel-side
