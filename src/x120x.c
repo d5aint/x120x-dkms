@@ -211,6 +211,37 @@ MODULE_PARM_DESC(conservation_mode_default,
 	"charge_type sysfs writes (the driver updates this internally and a "
 	"udev rule persists it to modprobe.d), not this read-only param.");
 
+/*
+ * Kernel-side undervoltage poweroff.  When the hard voltage floor
+ * latches, the driver calls orderly_poweroff() directly rather than
+ * relying on the UPower/logind userspace chain, which is unreliable on
+ * common targets (systemd < 255 ignores logind's HandleLowBattery;
+ * UPower may be D-Bus-inactive).  capacity_level=CRITICAL is asserted
+ * regardless, so a healthy userspace chain still acts first (earlier, at
+ * the 5 %% SoC line).
+ */
+static int vfloor_poweroff = 1;
+module_param(vfloor_poweroff, int, 0444);
+MODULE_PARM_DESC(vfloor_poweroff,
+	"Call orderly_poweroff() when the on-battery voltage floor latches "
+	"(1 = default/enabled, 0 = leave shutdown to userspace UPower/logind). "
+	"capacity_level=CRITICAL is asserted either way.");
+
+static int vmin_critical_mv = 3100;
+module_param(vmin_critical_mv, int, 0444);
+MODULE_PARM_DESC(vmin_critical_mv,
+	"On-battery terminal-voltage floor in mV (default 3100).  Held for "
+	"20 s it forces CRITICAL and, unless vfloor_poweroff=0, a kernel "
+	"poweroff.  Clamped to [2500, 4100] at load.");
+
+static int vfloor_poweroff_dry_run;
+module_param(vfloor_poweroff_dry_run, int, 0444);
+MODULE_PARM_DESC(vfloor_poweroff_dry_run,
+	"1 = log the poweroff decision at emerg instead of calling "
+	"orderly_poweroff(), to test the trigger path without shutting down "
+	"(default 0).  Test: modprobe ... vmin_critical_mv=4300 "
+	"vfloor_poweroff_dry_run=1, unplug AC, watch dmesg, replug.");
+
 /* -------------------------------------------------------------------------
  * MAX17043 register definitions (X120x board layout)
  *
@@ -262,6 +293,22 @@ MODULE_PARM_DESC(conservation_mode_default,
 #define X120X_DEAD_BAT_CONFIRM_US	(600LL * USEC_PER_SEC) /* 10 min window    */
 #define X120X_DEAD_BAT_MAX_RISE_UV_H	10000	/* 10 mV/h max rise — still dead           */
 #define X120X_DEAD_BAT_SOC_MAX		2	/* only below this SoC %                   */
+
+/*
+ * Hard terminal-voltage floor — SoC-independent undervoltage backstop.
+ * On battery, a raw cell voltage at/below the floor (vmin_critical_mv)
+ * held for the confirm window forces CAPACITY_LEVEL=CRITICAL and, unless
+ * disabled, a kernel orderly_poweroff() — independent of UPower/logind.
+ * This is the last line of defence for the failure Incident 1 exposed:
+ * on systemd < 255 logind ignores HandleLowBattery, and UPower may be
+ * D-Bus-inactive on a headless box, so the userspace shutdown chain can
+ * silently not fire.  Terminal voltage is calibration-immune ground
+ * truth; the confirm window rejects transient load-spike sags (raw V,
+ * not EMA).  The default 3.10 V equals the dead-battery threshold by
+ * coincidence — the two are gated oppositely (dead-bat on AC, this on
+ * battery).
+ */
+#define X120X_VMIN_CONFIRM_US		(20LL * USEC_PER_SEC) /* 20 s sustained before firing */
 
 #define X120X_SOC_CRITICAL_PCT	 5	/* CRITICAL below this % → logind poweroff */
 #define X120X_SOC_LOW_PCT	10	/* LOW below this % → desktop warning      */
@@ -326,6 +373,9 @@ MODULE_PARM_DESC(conservation_mode_default,
  * @dead_cand_start_us:	ktime (us) the cell first dropped below the dead threshold
  * @dead_cand_uv:	cell voltage (uV) when the dead-battery window started
  * @battery_dead:	true once a dead battery is confirmed
+ * @vfloor_start_us:	ktime the cell first fell to/below the voltage floor on battery; 0 = above
+ * @vfloor_critical:	true once the voltage floor held long enough to force SoC-independent CRITICAL
+ * @vfloor_poweroff_fired:	one-shot guard: kernel orderly_poweroff() already triggered
  * @work:		delayed work item driving the polling loop
  * @heartbeat_ticks:	poll ticks left until a forced power_supply_changed()
  * @hwmon_dev:		hwmon device exposing voltage/power to sensors
@@ -385,6 +435,9 @@ struct x120x_chip {
 	s64			 dead_cand_start_us;	/* ktime when below threshold   */
 	int			 dead_cand_uv;		/* voltage when cand. started   */
 	bool			 battery_dead;		/* confirmed dead battery       */
+	s64			 vfloor_start_us;	/* ktime V first <= floor on battery; 0 = above */
+	bool			 vfloor_critical;	/* voltage floor held → SoC-independent CRITICAL */
+	bool			 vfloor_poweroff_fired;	/* one-shot: kernel poweroff already triggered */
 
 	struct delayed_work	 work;
 	int			 heartbeat_ticks;	/* counts down to forced notify */
@@ -586,6 +639,7 @@ static void x120x_poll_work(struct work_struct *work)
 	 */
 	bool conservation_mode_snap = false;
 	int  capacity_pct_snap = 0;
+	int  poweroff_req = 0;	/* 0=none 1=real 2=dry — decided under lock, acted after unlock */
 
 	/* ----------------------------------------------------------------
 	 * Read fuel gauge.  On failure, increment the error counter and
@@ -787,6 +841,46 @@ static void x120x_poll_work(struct work_struct *work)
 				}
 			}
 		}
+
+		/*
+		 * Hard voltage floor (SoC-independent safety backstop): on
+		 * battery, a raw terminal voltage at/below the floor held for
+		 * X120X_VMIN_CONFIRM_US forces CRITICAL regardless of the SoC
+		 * estimate.  The poweroff decision is taken here under the lock
+		 * (one-shot) and acted on after the unlock — orderly_poweroff()
+		 * must not run under chip->lock.
+		 */
+		{
+			int vmin_uv = vmin_critical_mv * 1000;
+
+			if (!new_ac && new_uv > 0 && new_uv <= vmin_uv) {
+				if (chip->vfloor_start_us == 0) {
+					chip->vfloor_start_us = now_us;
+				} else if (now_us - chip->vfloor_start_us >=
+						X120X_VMIN_CONFIRM_US &&
+					   !chip->vfloor_critical) {
+					chip->vfloor_critical = true;
+					bat_changed = true;
+					dev_warn(&chip->client->dev,
+						 "terminal %d mV <= %d mV on battery for %lld s — CRITICAL (SoC-independent floor)\n",
+						 new_uv / 1000, vmin_critical_mv,
+						 div_s64(now_us - chip->vfloor_start_us,
+							 USEC_PER_SEC));
+					if (vfloor_poweroff) {
+						if (vfloor_poweroff_dry_run)
+							poweroff_req = 2;
+						else if (!chip->vfloor_poweroff_fired) {
+							chip->vfloor_poweroff_fired = true;
+							poweroff_req = 1;
+						}
+					}
+				}
+			} else if (chip->vfloor_start_us || chip->vfloor_critical) {
+				chip->vfloor_start_us = 0;
+				chip->vfloor_critical = false;
+				bat_changed = true;
+			}
+		}
 	} /* end chip state update and rate estimation */
 
 	conservation_mode_snap = chip->conservation_mode;
@@ -897,6 +991,23 @@ notify:
 		chip->heartbeat_ticks = X120X_HEARTBEAT_TICKS;
 	}
 
+	/*
+	 * Kernel-side undervoltage poweroff, decided under the lock above.
+	 * Called here (never under chip->lock) because orderly_poweroff()
+	 * runs the OS shutdown; on x728 the sys-off handler then pulses the
+	 * power-off GPIO, on x120x the EEPROM POWER_OFF_ON_HALT cuts the
+	 * rail at halt.  force=false keeps it graceful — the floor leaves
+	 * margin before boost-UVLO, and a clean unmount protects the disk.
+	 */
+	if (poweroff_req == 1) {
+		dev_emerg(&chip->client->dev,
+			  "undervoltage floor reached on battery — initiating orderly poweroff\n");
+		orderly_poweroff(false);
+	} else if (poweroff_req == 2) {
+		dev_emerg(&chip->client->dev,
+			  "DRY RUN: undervoltage floor reached — would call orderly_poweroff()\n");
+	}
+
 	schedule_delayed_work(&chip->work, msecs_to_jiffies(X120X_POLL_MS));
 }
 
@@ -946,7 +1057,7 @@ static int x120x_battery_get_property(struct power_supply *psy,
 	struct x120x_chip *chip = power_supply_get_drvdata(psy);
 	int ac_online, capacity_pct, capacity_256, voltage_uv, energy_rate_uw;
 	s64 energy_now_uwh, energy_full_uwh;
-	bool present, conservation_mode, battery_dead, charger_inhibited;
+	bool present, conservation_mode, battery_dead, charger_inhibited, vfloor_critical;
 
 	mutex_lock(&chip->lock);
 	ac_online        = chip->ac_online;
@@ -960,6 +1071,7 @@ static int x120x_battery_get_property(struct power_supply *psy,
 	energy_full_uwh = chip->energy_full_uwh;
 	energy_rate_uw  = chip->energy_rate_uw;
 	battery_dead    = chip->battery_dead;
+	vfloor_critical = chip->vfloor_critical;
 	mutex_unlock(&chip->lock);
 
 	/*
@@ -1025,10 +1137,12 @@ static int x120x_battery_get_property(struct power_supply *psy,
 		 */
 		if (!present) {
 			val->intval = POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN;
-		} else if (!ac_online && capacity_pct < X120X_SOC_CRITICAL_PCT) {
+		} else if (!ac_online && (capacity_pct < X120X_SOC_CRITICAL_PCT ||
+					  vfloor_critical)) {
 			/* Only report CRITICAL on battery — on AC the battery is
 			 * charging and shutting down would cause a livelock after
-			 * a deep discharge event. */
+			 * a deep discharge event.  vfloor_critical is the hard
+			 * voltage backstop for when the SoC estimate reads high. */
 			val->intval = POWER_SUPPLY_CAPACITY_LEVEL_CRITICAL;
 		} else if (capacity_pct < X120X_SOC_LOW_PCT) {
 			val->intval = POWER_SUPPLY_CAPACITY_LEVEL_LOW;
@@ -1786,6 +1900,18 @@ static int x120x_probe(struct i2c_client *client)
 	}
 
 	/*
+	 * Clamp the undervoltage floor to a sane range: comfortably above
+	 * the boost-converter UVLO and below a full cell, so neither a typo
+	 * nor a hostile modprobe.d value can disable protection (too low) or
+	 * power the box off at rest (too high).
+	 */
+	if (vmin_critical_mv < 2500 || vmin_critical_mv > 4100) {
+		dev_warn(dev, "vmin_critical_mv=%d out of range [2500, 4100]; clamping\n",
+			 vmin_critical_mv);
+		vmin_critical_mv = clamp(vmin_critical_mv, 2500, 4100);
+	}
+
+	/*
 	 * Validate the conservation band against the same rules the sysfs
 	 * store paths enforce (start 0-99, end 1-100, start < end).  The
 	 * module parameters arrive unvalidated from /etc/modprobe.d, and a
@@ -2205,7 +2331,7 @@ module_exit(x120x_exit);
 
 MODULE_AUTHOR("Edvard Fielding <mor-lock@users.noreply.github.com>");
 MODULE_DESCRIPTION("SupTronics UPS HAT power supply driver (X120x, X728, X708, X729)");
-MODULE_VERSION("0.4.10");
+MODULE_VERSION("0.4.11");
 /*
  * "GPL" is the canonical MODULE_LICENSE string for GPL-compatible
  * modules; the precise license (GPL-2.0-or-later) is expressed by the

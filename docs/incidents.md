@@ -85,6 +85,20 @@ the information needed to trigger a clean shutdown via the standard
 `HandleLowBattery=poweroff` path before the cells reach a dangerous
 voltage.  Without this, UPower has no basis on which to act.
 
+**Kernel-side undervoltage poweroff (v0.4.11)** — a later audit found
+the userspace chain above is not dependable everywhere: on
+systemd < 255 (Debian 12 ships 252) logind silently ignores
+`HandleLowBattery`, and UPower may be D-Bus-inactive on a headless
+box — so on the most common target OS nothing in userspace powered
+off on undervoltage, and the cells would drain to the boost-converter
+UVLO exactly as they did here.  The driver now closes that gap itself:
+on battery, a raw terminal voltage at/below the floor (3.1 V by
+default, tunable via `vmin_critical_mv`) held for 20 s makes it call
+`orderly_poweroff()` directly from kernel space, one-shot, independent
+of UPower and logind.  `capacity_level=Critical` is still asserted so a
+healthy userspace chain acts first; the voltage trigger is
+calibration-immune ground truth for when it does not.
+
 The incident made clear that the X120x hardware provides no
 undervoltage protection whatsoever — software must supply it entirely.
 The install script configures the complete shutdown chain automatically:

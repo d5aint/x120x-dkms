@@ -597,6 +597,21 @@ UPS cuts power to Pi — cells preserved well above 3.0 V
 grid restored → Pi boots automatically
 ```
 
+**Kernel-side backstop (independent of UPower/logind).**  The chain
+above is graceful but entirely userspace, and userspace is not always
+there to run it: on **systemd < 255 — including Debian 12 (systemd
+252) — logind ignores `HandleLowBattery`** (it logs "Unknown key …
+ignoring" at boot and does nothing), and UPower may be D-Bus-inactive
+on a headless box.  So the SoC → UPower → logind path can silently fail
+to fire.  As a last-ditch defence the driver watches the raw terminal
+voltage itself: on battery, a cell at/below **3.1 V held for 20 s**
+makes it call `orderly_poweroff()` directly from kernel space — no
+UPower, no logind.  It still forces `capacity_level=Critical`, so a
+healthy userspace chain acts first (earlier, at the 5 % SoC line); the
+voltage floor is calibration-immune, so it fires even if the SoC
+estimate reads high.  Disable with `vfloor_poweroff=0` for
+userspace-only operation, or move the floor with `vmin_critical_mv`.
+
 Without the driver, there is no automatic shutdown.  The Pi runs until
 the UPS hardware cuts power at its own low-voltage threshold, which may
 be at or below the cell damage threshold.
@@ -664,6 +679,14 @@ sets to 2% SoC.
 The driver reports `capacity_level=Critical` at 5% SoC, which triggers
 UPower's low battery warning.  The actual shutdown fires at 2% when
 UPower escalates to `warning-level: action`.
+
+> **systemd < 255 (e.g. Debian 12, systemd 252):** logind does **not**
+> understand `HandleLowBattery` — it logs "Unknown key
+> 'HandleLowBattery' … ignoring" at boot and never acts on it.  On
+> these systems the UPower `CriticalPowerAction=PowerOff` path below
+> drives the shutdown, and the driver's own kernel voltage floor (see
+> the shutdown chain above) is the backstop when UPower is not running.
+> The drop-in is still written — harmless on < 255, correct on ≥ 255.
 
 The install script enables this automatically by writing a drop-in
 file, `/etc/systemd/logind.conf.d/90-x120x.conf`:
@@ -1077,7 +1100,8 @@ x120x-dkms/
 │   ├── test-restore-overlay.sh
 │   ├── test-collect-debug.sh
 │   ├── test-check-links.sh
-│   └── test-check-versions.sh
+│   ├── test-check-versions.sh
+│   └── test-driver-params.sh
 ├── tools/
 │   ├── collect-debug.sh      — one-shot diagnostics paste (see Troubleshooting)
 │   ├── check-links.sh        — markdown link checker (run by CI)

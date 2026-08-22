@@ -2,6 +2,34 @@
 
 Release history of [x120x-dkms](README.md), newest first.
 
+### v0.4.11 — Kernel-side undervoltage poweroff
+
+**Driver**
+- The hard voltage floor now triggers a kernel `orderly_poweroff()`
+  directly, independent of the UPower/logind userspace chain.  An audit
+  found that chain is unreliable on the most common target: on
+  systemd < 255 (Debian 12 ships 252) logind ignores
+  `HandleLowBattery`, and UPower is often D-Bus-inactive on a headless
+  box — so nothing in userspace powered off on undervoltage and the
+  cells would drain to the boost-converter UVLO (Incident 1).  On
+  battery, a raw terminal voltage at/below `vmin_critical_mv`
+  (default 3100 mV) held 20 s now makes the driver power off itself,
+  one-shot, on-battery-only (never on AC — the Incident-2 livelock
+  guard).  `capacity_level=Critical` is still asserted, so a healthy
+  userspace chain acts first at the 5 %% SoC line and this is purely the
+  backstop.  Terminal voltage is calibration-immune, unlike the SoC
+  estimate.
+- New module parameters: `vfloor_poweroff` (1 = enabled default, 0 =
+  userspace-only), `vmin_critical_mv` (floor in mV, default 3100,
+  clamped to [2500, 4100]), and `vfloor_poweroff_dry_run` (log the
+  decision at emerg instead of powering off — exercises the whole
+  trigger path for testing without shutting the box down).
+
+**Documentation**
+- The README shutdown-chain section and Incident 1 now call out the
+  systemd < 255 logind gap explicitly and document the kernel-side
+  backstop.
+
 ### v0.4.10 — Ubuntu package-update survival
 
 **Installer**
